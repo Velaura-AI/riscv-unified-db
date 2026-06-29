@@ -7776,7 +7776,25 @@ module Idl
     # @!macro to_idl
     sig { override.params(include_comments: T::Boolean).returns(String) }
     def to_idl(include_comments: false)
-      _idl = text_value
+      # The IDL grammar has no negative integer literal; negative values must be
+      # serialized as unary-minus applied to a positive literal (e.g. -32'sh1).
+      # When the prune pass folds a constant to a negative value it stores text
+      # like "32'-1", which is grammar-invalid. Detect that case and rewrite.
+      _idl =
+        if text_value.delete("_") =~ /^((MXLEN)|([0-9]+))'(s?)([bodh]?)(-[0-9a-fA-F]+)$/
+          width   = ::Regexp.last_match(1)
+          signed  = ::Regexp.last_match(4)
+          base_ch = ::Regexp.last_match(5)
+          neg_str = ::Regexp.last_match(6) # e.g. "-1"
+          radix   = base_ch.empty? ? 10 : { "b" => 2, "o" => 8, "d" => 10, "h" => 16 }[base_ch]
+          abs_val = neg_str.sub("-", "").to_i(radix)
+          abs_str = base_ch.empty? ? abs_val.to_s : "#{base_ch}#{abs_val.to_s(radix)}"
+          # Ensure signed marker present (a negative value must come from a signed type)
+          s_marker = signed.empty? ? "s" : signed
+          "-#{width}'#{s_marker}#{abs_str}"
+        else
+          text_value
+        end
       include_comments ? with_comments(_idl) : _idl
     end
 

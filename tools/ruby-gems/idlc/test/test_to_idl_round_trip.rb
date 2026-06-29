@@ -9,6 +9,7 @@ require "tempfile"
 require "pathname"
 
 require "idlc"
+require "idlc/passes/prune"
 require_relative "helpers"
 
 $root ||= (Pathname.new(__FILE__) / ".." / ".." / ".." / "..").realpath
@@ -136,5 +137,34 @@ class TestToIdlRoundTrip < Minitest::Test
     # Each variable declaration inside a function body should have exactly one ';'
     # after it (from StatementAst). Detect double semicolons as a failure signal.
     refute_match(/;;/, body_idl, "Double semicolons found in function body to_idl output")
+  end
+
+  # -------------------------------------------------------------------------
+  # IntLiteralAst#to_idl: negative values must serialize as unary-minus form
+  #
+  # Bug: the prune pass stores a negative value as text like "32'-1", which
+  # is grammar-invalid. The serializer must rewrite it to "-32'sd1".
+  # -------------------------------------------------------------------------
+
+  def test_negative_int_literal_to_idl_round_trips
+    # Build a negative IntLiteralAst the same way PruneHelpers.create_int_literal
+    # does when it folds a constant to a negative value (e.g. value = -1, width 32).
+    forced_type = Idl::Type.new(:bits, width: 32, qualifiers: [:signed])
+    node = Idl::PruneHelpers.create_int_literal(-1, forced_type:)
+    assert_instance_of Idl::IntLiteralAst, node
+
+    serialized = node.to_idl
+    # Must start with '-' (unary-minus form), not contain a bare negative digit after "'"
+    assert_match(/\A-/, serialized, "to_idl of negative literal must start with '-', got: #{serialized.inspect}")
+    refute_match(/'-(d?)\d/, serialized, "to_idl must not emit grammar-invalid 32'-1 form, got: #{serialized.inspect}")
+
+    # Must re-parse without a SyntaxError
+    # Wrap as a global initializer so the parser sees a complete declaration
+    full = "#{ISA_HEADER}Bits<32> NEG_CONST = #{serialized};\n"
+    begin
+      parse_isa(full)
+    rescue SyntaxError => e
+      flunk "Negative int literal to_idl output '#{serialized}' failed to re-parse:\n#{e.message}"
+    end
   end
 end
