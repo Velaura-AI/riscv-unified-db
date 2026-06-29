@@ -57,7 +57,7 @@ class TestToIdlRoundTrip < Minitest::Test
   def test_global_with_initialization_round_trips
     idl = round_trip_isa("Bits<32> MY_CONST = 32'hDEAD;\n")
     # The serialized global must carry a trailing semicolon
-    assert_match(/Bits<32>.*MY_CONST.*=.*32'hDEAD.*;\s*\z/m, idl.sub(ISA_HEADER, "").strip + ";")
+    assert_match(/Bits<32>.*MY_CONST.*=.*32'hDEAD.*;\s*\z/m, idl.sub(ISA_HEADER, "").strip)
     # Exactly one semicolon per global (no double-semicolon)
     refute_match(/;;/, idl)
   end
