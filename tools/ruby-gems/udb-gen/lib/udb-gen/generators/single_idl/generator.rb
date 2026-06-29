@@ -60,10 +60,27 @@ module UdbGen
 
     private
 
-    # Stub: header only. Filled in Task 3.
     sig { returns(String) }
     def emit
-      "%version: 1.0\n"
+      ast = cfg_arch.global_ast
+
+      parts = ["%version: 1.0", ""]
+      emit_each(parts, ast.globals)
+      emit_each(parts, ast.enums)
+      emit_each(parts, ast.bitfields)
+      emit_each(parts, ast.structs)
+      emit_each(parts, ast.functions)
+      # fetch is already-IDL too; emit it when present (skip the raising IsaAst#fetch accessor).
+      emit_each(parts, ast.definitions.grep(Idl::FetchAst))
+      parts.join("\n") + "\n"
+    end
+
+    sig { params(parts: T::Array[String], nodes: T::Array[T.untyped]).void }
+    def emit_each(parts, nodes)
+      nodes.each do |n|
+        parts << n.to_idl
+        parts << ""
+      end
     end
   end
 end
