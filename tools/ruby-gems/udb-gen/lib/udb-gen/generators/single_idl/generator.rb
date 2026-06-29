@@ -62,14 +62,18 @@ module UdbGen
 
     sig { returns(String) }
     def emit
-      ast = cfg_arch.global_ast
+      # Dead-branch pruning is an upstream resolved-arch pass; the generator only serializes.
+      ast = cfg_arch.pruned_global_ast
+      # Function-reachability pruning is the existing resolved-arch dimension.
+      reachable = cfg_arch.reachable_functions(show_progress: false).map(&:name).to_set
 
       parts = ["%version: 1.0", ""]
       emit_each(parts, ast.globals)
       emit_each(parts, ast.enums)
       emit_each(parts, ast.bitfields)
       emit_each(parts, ast.structs)
-      emit_each(parts, ast.functions)
+      # Intersection of the two pruning dimensions: dead-branch-pruned bodies, reachable only.
+      emit_each(parts, ast.functions.select { |f| reachable.include?(f.name) })
       # fetch is already-IDL too; emit it when present (skip the raising IsaAst#fetch accessor).
       emit_each(parts, ast.definitions.grep(Idl::FetchAst))
       parts.join("\n") + "\n"

@@ -254,6 +254,56 @@ module Udb
         end
     end
 
+    # Dead-branch-pruned, type-checked, frozen, memoized version of {#global_ast}.
+    #
+    # This is the resolved-arch "dead-branch / config-conditional" pruning dimension:
+    # config-known values (XLEN, implemented?(ext), params) collapse ternaries and dead
+    # branches in function bodies, so two configs (e.g. rv32 vs rv64) produce different
+    # IDL text. It exposes the same accessors as {#global_ast}
+    # (.globals/.enums/.bitfields/.structs/.functions/.definitions) and is the source AST
+    # the single-idl generator serializes.
+    #
+    # Recipe: this lifts the per-instruction `pruned_operation_ast` recipe
+    # (udb/obj/instruction.rb) to the whole-IsaAst level. We prune per *function definition*
+    # rather than calling `IsaAst#prune` directly: the generic `AstNode#prune` re-runs
+    # `add_symbol` for declaration nodes (enums/bitfields/structs/globals), which raises
+    # DuplicateSymError against the already-populated global symtab. Only function bodies
+    # carry the config-conditional branches we want pruned, so we prune those and keep the
+    # other definitions as-is. Each function is pruned against a fresh `global_clone` with a
+    # pushed scope (so `FunctionDefAst#prune`'s `apply_arg_syms` writes into a writable scope
+    # instead of the frozen global hash), then released back to the pool.
+    sig { returns(Idl::IsaAst) }
+    def pruned_global_ast
+      @pruned_global_ast ||=
+        begin
+          type_check(show_progress: false)   # prune precondition: type-checked + frozen
+          src = global_ast
+          pruned_defs =
+            src.definitions.map do |d|
+              next d unless d.is_a?(Idl::FunctionDefAst) && !d.builtin? && !d.generated? && !d.body.nil?
+
+              clone = symtab.global_clone
+              begin
+                clone.push(d)               # writable scope for apply_arg_syms
+                pruned_fn = d.prune(clone)
+                clone.pop
+                pruned_fn
+              ensure
+                clone.release
+              end
+            end
+          # Build the pruned IsaAst by dup-ing the original and swapping its children:
+          # IsaAst.new mutates each child's @parent, which fails on the reused frozen
+          # (non-function) definitions. dup copies via initialize_copy (no parent mutation),
+          # so we replace @children directly. Parents on the reused frozen children stay
+          # pointed at the original IsaAst, which is irrelevant for serialization.
+          pruned = src.dup
+          pruned.instance_variable_set(:@children, pruned_defs)
+          pruned.freeze_tree(symtab)
+          pruned
+        end
+    end
+
     sig { returns(ConfigType) }
     def config_type = @config_type
 
