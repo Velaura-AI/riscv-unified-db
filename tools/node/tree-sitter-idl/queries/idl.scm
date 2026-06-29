@@ -135,12 +135,17 @@
 ; Simple single-block nodes (struct/enum/bitfield use { } directly)
 ; @append_hardline on } ensures subsequent standalone comments don't collapse
 ; onto the closing brace line (e.g. "}\n\n# comment" stays on its own line).
-(enum_definition (type_identifier) . "{" @append_spaced_softline @append_indent_start "}" @prepend_spaced_softline @prepend_indent_end @append_hardline .)
-(bitfield_definition (type_identifier) . "{" @append_spaced_softline @append_indent_start "}" @prepend_spaced_softline @prepend_indent_end @append_hardline .)
-(struct_definition (type_identifier) . "{" @append_spaced_softline @append_indent_start "}" @prepend_spaced_softline @prepend_indent_end @append_hardline .)
+; @prepend_hardline (not @prepend_spaced_softline) on } ensures idempotence:
+; the spaced_softline variant produces non-idempotent output because enum members
+; always appear one per line (via @prepend_hardline on enum_member), so the block
+; is never "flat" but topiary still collapses } onto the last member's line on the
+; first pass and then moves it to a new line on the second pass.
+(enum_definition (type_identifier) . "{" @append_hardline @append_indent_start "}" @prepend_hardline @prepend_indent_end @append_hardline .)
+(bitfield_definition (type_identifier) . "{" @append_hardline @append_indent_start "}" @prepend_hardline @prepend_indent_end @append_hardline .)
+(struct_definition (type_identifier) . "{" @append_hardline @append_indent_start "}" @prepend_hardline @prepend_indent_end @append_hardline .)
 
 ; implication_for_loop still uses { } directly (rare construct)
-(implication_for_loop "{" @append_spaced_softline @append_indent_start "}" @prepend_spaced_softline @prepend_indent_end)
+(implication_for_loop "{" @append_hardline @append_indent_start "}" @prepend_hardline @prepend_indent_end)
 
 "else" @prepend_space @append_space
 
