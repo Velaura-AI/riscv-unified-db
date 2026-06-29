@@ -1324,7 +1324,7 @@ module Idl
     sig { override.params(include_comments: T::Boolean).returns(String) }
     def to_idl(include_comments: false)
       _idl = begin
-        var_decl_with_init.to_idl(include_comments:)
+        "#{var_decl_with_init.to_idl(include_comments:)};"
       end
       include_comments ? with_comments(_idl) : _idl
     end
@@ -1390,7 +1390,7 @@ module Idl
 
     sig { override.params(include_comments: T::Boolean).returns(String) }
     def to_idl(include_comments: false)
-      _idl = declaration.to_idl(include_comments:)
+      _idl = "#{declaration.to_idl(include_comments:)};"
       include_comments ? with_comments(_idl) : _idl
     end
 
@@ -2181,7 +2181,7 @@ module Idl
     # @!macro to_idl
     sig { override.params(include_comments: T::Boolean).returns(String) }
     def to_idl(include_comments: false)
-      _idl = "generated enum #{@user_type.text_value}"
+      _idl = "generated enum #{@user_type.text_value};"
       include_comments ? with_comments(_idl) : _idl
     end
 
@@ -9816,7 +9816,7 @@ module Idl
     sig { override.params(include_comments: T::Boolean).returns(String) }
     def to_idl(include_comments: false)
       _idl = begin
-        "#{csr_name}.#{function_name}(#{args.map { |_n| _n.to_idl(include_comments:) }.join(', ')})"
+        "#{csr.to_idl(include_comments:)}.#{function_name}(#{args.map { |_n| _n.to_idl(include_comments:) }.join(', ')})"
       end
       include_comments ? with_comments(_idl) : _idl
     end
