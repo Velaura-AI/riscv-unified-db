@@ -30,6 +30,7 @@ help() {
   echo "  inst-table:    Generate instruction table              ('generate inst-table -h' for more)"
   echo "  isa-explorer:  Generate tables of ISA information      ('generate isa-explorer -h' for more)"
   echo "  manual:        Generate ISA manual                     ('generate manual -h' for more)"
+  echo "  single-idl:    Emit one config-pruned self-contained IDL file ('generate single-idl -h' for more)"
   echo ""
 }
 
@@ -51,7 +52,7 @@ done
 subcommand=$1
 
 case "$subcommand" in
-  ext-doc | isa-explorer | manual | cfg-c-header | cfg-svh-header | inst-table)
+  ext-doc | isa-explorer | manual | cfg-c-header | cfg-svh-header | inst-table | single-idl)
     exec "${ROOT}/udb-gen" "${@:1}"
     exit 0
     ;;
