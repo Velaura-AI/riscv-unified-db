@@ -7786,6 +7786,9 @@ module Idl
           signed  = ::Regexp.last_match(4)
           base_ch = ::Regexp.last_match(5)
           neg_str = ::Regexp.last_match(6) # e.g. "-1"
+          # In practice base_ch is always empty: PruneHelpers.create_int_literal only emits
+          # negative values as decimal-no-base (value.to_s); the hex "h..." branch is taken only
+          # for values > 512, which are always positive. The base branches below are defensive.
           radix   = base_ch.empty? ? 10 : { "b" => 2, "o" => 8, "d" => 10, "h" => 16 }[base_ch]
           abs_val = neg_str.sub("-", "").to_i(radix)
           abs_str = base_ch.empty? ? abs_val.to_s : "#{base_ch}#{abs_val.to_s(radix)}"

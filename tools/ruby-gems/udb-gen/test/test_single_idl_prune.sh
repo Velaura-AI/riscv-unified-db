@@ -10,13 +10,22 @@ tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 if diff -q "$tmp/rv32.isa" "$tmp/rv64.isa" >/dev/null; then
   echo "FAIL: rv32 and rv64 emissions are identical — pruning is not config-specific"; exit 1
 fi
-# reachability prune: emitted function count == the reachable set, and strictly fewer than all functions
-read -r emitted reachable total < <(./bin/mise exec -- bundle exec ruby -e '
+# reachability prune: emitted function count == the reachable set, and strictly fewer than all functions.
+# Stderr is captured separately so info-log noise does not corrupt the captured stdout, while a
+# genuine ruby crash (non-zero exit) still surfaces — the stderr log is printed and the test fails.
+ruby_stderr="$tmp/ruby_stderr.log"
+ruby_out=$(./bin/mise exec -- bundle exec ruby -e '
   require "udb/cfg_arch"
   ca = Udb::Resolver.new.cfg_arch_for("rv64")
   emitted = File.read(ARGV[0]).scan(/\bfunction \w+\?? \{/).size
   puts "#{emitted} #{ca.reachable_functions(show_progress: false).size} #{ca.global_ast.functions.size}"
-' "$tmp/rv64.isa" 2>/dev/null)
+' "$tmp/rv64.isa" 2>"$ruby_stderr") || {
+  echo "FAIL: ruby subprocess exited non-zero"
+  echo "--- ruby stderr ---"
+  cat "$ruby_stderr"
+  exit 1
+}
+read -r emitted reachable total <<<"$ruby_out"
 test "$emitted" -eq "$reachable" || { echo "FAIL: emitted funcs ($emitted) != reachable ($reachable)"; exit 1; }
 test "$reachable" -lt "$total"   || { echo "FAIL: reachability dropped nothing ($reachable of $total)"; exit 1; }
 echo PASS

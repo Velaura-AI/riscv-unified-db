@@ -65,6 +65,9 @@ module UdbGen
       # Dead-branch pruning is an upstream resolved-arch pass; the generator only serializes.
       ast = cfg_arch.pruned_global_ast
       # Function-reachability pruning is the existing resolved-arch dimension.
+      # pruned_global_ast preserves the full function set by name (it trims bodies, never drops
+      # a function), so this by-name intersection is sound: every name in `reachable` is
+      # guaranteed to exist in ast.functions. See pruned_global_ast's "Invariant preserved" note.
       reachable = cfg_arch.reachable_functions(show_progress: false).map(&:name).to_set
 
       parts = ["%version: 1.0", ""]

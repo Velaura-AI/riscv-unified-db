@@ -263,6 +263,21 @@ module Udb
     # (.globals/.enums/.bitfields/.structs/.functions/.definitions) and is the source AST
     # the single-idl generator serializes.
     #
+    # **Contract**: only function *bodies* are dead-branch-pruned. Non-function definitions
+    # (globals, enums, structs, bitfields, fetch) pass through verbatim. Callers must NOT
+    # assume dead globals or enums are removed — they are not. (Pruning them via the generic
+    # AstNode#prune would re-run add_symbol on decl nodes, raising DuplicateSymError against
+    # the already-populated global symtab.)
+    #
+    # **Invariant preserved**: prune trims function bodies but never drops a function from the
+    # definitions list. The function set returned by #functions is identical (by name) to that
+    # of the unpruned #global_ast. This is what makes the generator's by-name intersection with
+    # reachable_functions sound: it can safely filter ast.functions by name without risking a
+    # missing key.
+    #
+    # **Memo note**: `@pruned_global_ast ||=` is non-atomic, consistent with reachable_functions'
+    # own memo idiom — safe for single-threaded use only.
+    #
     # Recipe: this lifts the per-instruction `pruned_operation_ast` recipe
     # (udb/obj/instruction.rb) to the whole-IsaAst level. We prune per *function definition*
     # rather than calling `IsaAst#prune` directly: the generic `AstNode#prune` re-runs

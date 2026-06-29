@@ -5,6 +5,9 @@ require "fileutils"
 require "pathname"
 require "udb/cfg_arch"
 
+# Repo root derived from this file's location so the test is not fragile to cwd.
+REPO_ROOT = Pathname.new(__dir__).join("../../../..").expand_path
+
 class SingleIdlRoundTrip < Minitest::Test
   def test_emitted_isa_typechecks_as_overlay_globals
     Dir.mktmpdir do |dir|
@@ -12,7 +15,8 @@ class SingleIdlRoundTrip < Minitest::Test
       # 1. Emit the single-idl for rv64 into an overlay's isa/globals.isa.
       overlay = dir / "overlay"
       FileUtils.mkdir_p(overlay / "isa")
-      system("./bin/generate", "single-idl", "-c", "rv64", "-o", (overlay / "isa" / "globals.isa").to_s) \
+      generate_bin = (REPO_ROOT / "bin" / "generate").to_s
+      system(generate_bin, "single-idl", "-c", "rv64", "-o", (overlay / "isa" / "globals.isa").to_s) \
         or flunk "generator failed"
 
       # 2. A config that uses our emitted file as its globals via arch_overlay (absolute path).
