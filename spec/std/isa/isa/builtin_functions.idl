@@ -342,7 +342,7 @@ generated function pow {
   }
 }
 
-generated function maybe_cache_translation {
+builtin function maybe_cache_translation {
   arguments XReg vaddr,
     MemoryOperation op,
     TranslationResult result
@@ -352,7 +352,7 @@ generated function maybe_cache_translation {
   }
 }
 
-generated function cached_translation {
+builtin function cached_translation {
   returns CachedTranslationResult # cached result
   arguments XReg vaddr, # virtual address
     MemoryOperation op # operation
@@ -390,7 +390,7 @@ builtin function order_pgtbl_reads_after_vmafence {
   }
 }
 
-generated function invalidate_translations {
+builtin function invalidate_translations {
   arguments VmaOrderType inval_type
   description {
     Locally invalidate the cached S-mode/VS-mode/G-stage address translations
