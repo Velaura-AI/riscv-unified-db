@@ -75,6 +75,17 @@ module Udb
       end
     end
 
+    # path to the cross-process lock file guarding generation of the resolved-spec directory
+    # +path+ (as returned by #resolved_spec_path). #resolve_arch takes this lock EX while
+    # (re)generating; ConfiguredArchitecture's lazy accessors (cfg_arch.rb) take it SH before
+    # their first read of that directory, so a reader can never observe a partially-generated
+    # tree. A class method (not an instance method) because cfg_arch.rb's readers only have the
+    # resolved Pathname (their @arch_dir), not a live Resolver.
+    sig { params(path: Pathname).returns(Pathname) }
+    def self.generation_lock_path(path)
+      path.dirname / ".#{path.basename}.lock"
+    end
+
     # create a new resolver.
     #
     # With no arguments, resolver will assume it exists in the riscv-unified-db repository
@@ -190,8 +201,8 @@ module Udb
         raise "custom directory '#{overlay_path}' does not exist" if !overlay_path.nil? && !overlay_path.directory?
 
         FileUtils.mkdir_p(@gen_path / "spec")
-        merge_lock_name = merged_spec_path(config_name).basename
-        File.open(@gen_path / "spec" / ".#{merge_lock_name}.lock", File::CREAT | File::RDWR) do |f|
+        lock_path = Resolver.generation_lock_path(merged_spec_path(config_name))
+        File.open(lock_path, File::CREAT | File::RDWR) do |f|
           f.flock(File::LOCK_EX)
           if any_newer?(merged_spec_path(config_name) / ".stamp", deps)
             # Use Ruby YAML resolver instead of Python
@@ -214,8 +225,8 @@ module Udb
         config_name = config_yaml["name"]
 
         FileUtils.mkdir_p(@gen_path / "resolved_spec")
-        resolve_lock_name = resolved_spec_path(config_name).basename
-        File.open(@gen_path / "resolved_spec" / ".#{resolve_lock_name}.lock", File::CREAT | File::RDWR) do |f|
+        lock_path = Resolver.generation_lock_path(resolved_spec_path(config_name))
+        File.open(lock_path, File::CREAT | File::RDWR) do |f|
           f.flock(File::LOCK_EX)
           deps = Dir[merged_spec_path(config_name) / "**" / "*.yaml"].map { |p| Pathname.new(p) }
           if any_newer?(resolved_spec_path(config_name) / ".stamp", deps)
