@@ -149,7 +149,7 @@ function nan_box {
   body {
     assert(FROM_SIZE < TO_SIZE, "Bad arguments; FROM_SIZE must be less than TO_SIZE");
 
-    return {{TO_SIZE - FROM_SIZE{1'b1}}, from_value};
+    return {{TO_SIZE - FROM_SIZE{1'b1}}, from_value[FROM_SIZE - 1 : 0]};
   }
 }
 
