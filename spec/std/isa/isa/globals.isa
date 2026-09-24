@@ -294,6 +294,10 @@ function compatible_mode? {
           (actual_mode == PrivilegeMode::S) ||
           (actual_mode == PrivilegeMode::VS) ||
           (actual_mode == PrivilegeMode::VU);
+    } else if (target_mode == PrivilegeMode::D) {
+      # Debug Mode is the single most-privileged mode (RISC-V Debug spec) -- only Debug Mode
+      # itself is "at or above" it.
+      return actual_mode == PrivilegeMode::D;
     }
   }
 }

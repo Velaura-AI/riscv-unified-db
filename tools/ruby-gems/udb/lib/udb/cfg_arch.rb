@@ -809,12 +809,24 @@ module Udb
         cached_files = @@yaml_data_cache[yaml_cache_key]
         if cached_files.nil?
           entries = []
-          Dir.glob(@arch_dir / arch_dir / "**" / "*.yaml") do |obj_path|
-            File.open(obj_path) do |f|
-              f.flock(File::LOCK_EX)
-              content = f.read
-              f.flock(File::LOCK_UN)
-              entries << [content, obj_path, Pathname.new(obj_path).realpath]
+          # Take the same lock #resolve_arch holds EX while (re)generating @arch_dir, SH here,
+          # so this first read can never race a concurrent first-time generation of the same
+          # resolved-spec tree (issue #517: on a cold per-lane checkout, this directory is
+          # generated fresh on every run, where before it was warmed once and stayed cached).
+          # A per-individual-file lock (the old approach) has no relationship to the writer's
+          # lock and can't provide that guarantee.
+          lock_path = Resolver.generation_lock_path(@arch_dir)
+          File.open(lock_path, File::CREAT | File::RDONLY) do |lock_f|
+            lock_f.flock(File::LOCK_SH)
+            begin
+              Dir.glob(@arch_dir / arch_dir / "**" / "*.yaml") do |obj_path|
+                File.open(obj_path) do |f|
+                  content = f.read
+                  entries << [content, obj_path, Pathname.new(obj_path).realpath]
+                end
+              end
+            ensure
+              lock_f.flock(File::LOCK_UN)
             end
           end
           cached_files = @@yaml_data_cache[yaml_cache_key] = entries

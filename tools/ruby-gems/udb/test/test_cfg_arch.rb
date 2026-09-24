@@ -756,4 +756,104 @@ class TestCfgArch < Minitest::Test
       end
     end
   end
+
+  # issue #517: a ConfiguredArchitecture's lazy object accessors (.instructions, .params, etc,
+  # defined by generate_obj_methods) must never read resolved_spec files while another process
+  # is still (re)generating that same resolved_spec directory. #resolve_arch guards generation
+  # with an exclusive lock on Resolver.generation_lock_path(resolved_spec_path); the lazy
+  # accessors must wait on that same lock (shared) before their first disk read.
+  def test_lazy_accessor_waits_for_in_progress_generation_lock
+    cfg_arch = @resolver.cfg_arch_for("rv32")
+    # cfg_arch_for already resolved+generated everything and released the lock -- fetch the
+    # lock path it used, but don't touch any lazy accessor yet, so the next call below is
+    # still a genuine first-ever (cold, cache-missing) read for this @gen_dir.
+    lock_path = Udb::Resolver.generation_lock_path(cfg_arch.config.info.resolved_spec_path)
+
+    locked_r, locked_w = IO.pipe
+    release_r, release_w = IO.pipe
+
+    holder_pid = fork do
+      locked_r.close
+      release_w.close
+      File.open(lock_path, File::CREAT | File::RDWR) do |f|
+        f.flock(File::LOCK_EX)
+        locked_w.write("locked")
+        locked_w.close
+        release_r.read # blocks until the parent says to let go
+        release_r.close
+      end
+      exit!(0)
+    end
+    locked_w.close
+    release_r.close
+
+    locked_r.read # blocks until the fork confirms it holds the exclusive lock
+    locked_r.close
+
+    reader_done = Concurrent::AtomicBoolean.new(false)
+    instruction_count = nil
+    reader_error = nil
+    reader = Thread.new do
+      begin
+        instruction_count = cfg_arch.instructions.size
+      rescue => e
+        reader_error = e
+      ensure
+        reader_done.make_true
+      end
+    end
+
+    # The lock holder is alive and holding EX; the reader must not have completed yet.
+    sleep 0.3
+    refute reader_done.true?, "lazy accessor read completed while the generation lock was " \
+      "still held exclusively -- it did not wait on Resolver.generation_lock_path"
+
+    release_w.write("release")
+    release_w.close
+    Process.waitpid(holder_pid)
+
+    reader.join(10)
+    assert reader_done.true?, "lazy accessor read never completed after the generation lock was released"
+    raise reader_error if reader_error
+    assert_operator instruction_count, :>, 0
+  end
+
+  # issue #517: several processes racing to construct a ConfiguredArchitecture for the same
+  # config against a shared, brand-new (cold) gen_path -- the exact scenario a freshly
+  # isolated per-lane CI checkout produces on every run -- must all succeed and agree on the
+  # resulting object counts, with no Errno::EBADF or other exception from a partially
+  # generated resolved_spec tree.
+  def test_concurrent_first_generation_across_processes
+    n_children = 8
+    pids = []
+    readers = []
+
+    n_children.times do
+      reader, writer = IO.pipe
+      pid = fork do
+        reader.close
+        begin
+          resolver = Udb::Resolver.new(Udb.repo_root, gen_path_override: Pathname.new(@gen_dir))
+          cfg_arch = resolver.cfg_arch_for("rv32")
+          writer.puts "OK #{cfg_arch.instructions.size}"
+        rescue => e
+          writer.puts "ERR #{e.class}: #{e.message}"
+        ensure
+          writer.close
+        end
+        exit!(0)
+      end
+      writer.close
+      readers << reader
+      pids << pid
+    end
+
+    results = readers.map { |r| r.read.strip.tap { r.close } }
+    pids.each { |pid| Process.waitpid(pid) }
+
+    results.each { |r| assert_match(/\AOK \d+\z/, r, "child failed: #{r}") }
+    counts = results.map { |r| r.split(" ").last.to_i }.uniq
+    assert_equal 1, counts.size, "children disagreed on instruction count: #{results}"
+    assert_operator counts.first, :>, 0
+  end
 end

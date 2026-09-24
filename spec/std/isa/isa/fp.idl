@@ -1712,7 +1712,10 @@ function softfloat_roundPackToF32_no_flag {
     }
 
     sig = (sig + roundIncrement) >> 7;
-    sig = sig & ~((roundBits ^ 0x40) & ((mode == RoundingMode::RNE) ? 1 : 0));
+    if ((roundBits == 0x40) && (mode == RoundingMode::RNE)) {
+      sig = sig & ~32'b1;
+      # Clear only the LSB
+    }
     if (sig == 0) {
       exp = 0;
     }
