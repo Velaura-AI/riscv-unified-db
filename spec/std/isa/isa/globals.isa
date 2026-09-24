@@ -294,9 +294,14 @@ function compatible_mode? {
           (actual_mode == PrivilegeMode::S) ||
           (actual_mode == PrivilegeMode::VS) ||
           (actual_mode == PrivilegeMode::VU);
-    } else if (target_mode == PrivilegeMode::D) {
-      # Debug Mode is the single most-privileged mode (RISC-V Debug spec) -- only Debug Mode
-      # itself is "at or above" it.
+    } else {
+      # target_mode == PrivilegeMode::D: Debug Mode is the single most-privileged mode
+      # (RISC-V Debug spec) -- only Debug Mode itself is "at or above" it. A genuine trailing
+      # `else` (not another `else if`) is required here, not just style: idlc_ext always
+      # serializes a trailing else body (synthesizing an EMPTY one when the source has none at
+      # all), and idlir's own return-value-exhaustiveness check requires that trailing body to
+      # itself guarantee a return -- an `else if` chain with no real `else` leaves that
+      # synthesized body empty regardless of how many conditions precede it.
       return actual_mode == PrivilegeMode::D;
     }
   }
