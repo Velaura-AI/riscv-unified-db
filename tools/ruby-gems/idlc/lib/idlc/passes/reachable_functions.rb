@@ -10,6 +10,48 @@ module Idl
   class AstNode
     ReachableFunctionCacheType = T.type_alias { T::Hash[T::Array[T.untyped], T::Array[FunctionDefAst]] }
 
+    # Names of the variables that may be assigned anywhere in this subtree (nested control flow
+    # included). Used to decide which values stop being known after code that may not run.
+    sig { params(acc: T::Set[String]).returns(T::Set[String]) }
+    def assigned_variable_names(acc = T::Set[String].new)
+      case self
+      when VariableAssignmentAst
+        acc << lhs.text_value unless lhs.is_a?(CsrWriteAst)
+      when AryElementAssignmentAst
+        base = AstNode.extract_base_var_name(lhs)
+        acc << base unless base.nil?
+      when AryRangeAssignmentAst
+        base = AstNode.extract_base_var_name(variable)
+        acc << base unless base.nil?
+      when FieldAssignmentAst
+        acc << id.name
+      when PostIncrementExpressionAst, PostDecrementExpressionAst
+        acc << rval.text_value if rval.is_a?(IdAst)
+      end
+      children.each { |child| child.assigned_variable_names(acc) }
+      acc
+    end
+
+    # Make every variable this subtree may assign unknown in `symtab`.
+    #
+    # The pass executes assignments as it walks so that later conditions can be folded. That is only
+    # sound where the assignment is certain to run. For code that may NOT run (an arm taken under an
+    # unknown condition, a loop body, a conditional statement), a variable assigned there is NOT
+    # known afterwards, and a sibling arm must not see it. Without this the pass kept whatever value
+    # the last walked arm left, so `if (unknown) { x = 0; } f(x);` analysed f with x == 0, folded a
+    # condition inside f, and dropped the callee under it (fcvt.d.s lost the subnormal path of
+    # f32_to_f64_no_flag this way).
+    sig { params(symtab: SymbolTable).void }
+    def forget_assigned_variables(symtab)
+      assigned_variable_names.each do |name|
+        var = symtab.get(name)
+        next unless var.is_a?(Var)
+        next if var.type.global?
+
+        var.value = nil
+      end
+    end
+
     # @return [Array<FunctionDefAst>] List of all functions that can be reached (via function calls) from this node
     sig {
       params(symtab: SymbolTable, cache: ReachableFunctionCacheType )
@@ -101,6 +143,20 @@ module Idl
       .returns(T::Array[FunctionDefAst])
     }
     def reachable_functions(symtab, cache = T.let({}, ReachableFunctionCacheType))
+      # Set once the walk reaches an arm whose condition is not known at compile time. From then on
+      # we cannot say which arm runs, so no variable assigned in any arm has a known value after the
+      # if (see AstNode#forget_assigned_variables).
+      uncertain = T.let([false], T::Array[T::Boolean])
+      fns = reachable_functions_walk(symtab, cache, uncertain)
+      forget_assigned_variables(symtab) if uncertain.fetch(0)
+      fns
+    end
+
+    sig {
+      params(symtab: SymbolTable, cache: ReachableFunctionCacheType, uncertain: T::Array[T::Boolean])
+      .returns(T::Array[FunctionDefAst])
+    }
+    def reachable_functions_walk(symtab, cache, uncertain)
       fns = []
       value_try do
         fns.concat if_cond.reachable_functions(symtab, cache)
@@ -122,29 +178,38 @@ module Idl
                 end
               end
               value_else(value_result) do
-                # condition isn't known; body is potentially reachable
+                # condition isn't known; body is potentially reachable, and so are the arms after it
+                uncertain[0] = true
+                forget_assigned_variables(symtab)
                 fns.concat eif.body.reachable_functions(symtab, cache)
               end
             end
+            forget_assigned_variables(symtab) if uncertain.fetch(0)
             fns.concat final_else_body.reachable_functions(symtab, cache)
           end
         end
         value_else(value_result) do
+          # condition isn't known: any arm may run, and values must not pass between arms
+          uncertain[0] = true
+          forget_assigned_variables(symtab)
           fns.concat if_body.reachable_functions(symtab, cache)
 
           elseifs.each do |eif|
             fns.concat eif.cond.reachable_functions(symtab, cache)
             value_result = value_try do
               if (eif.cond.value(symtab))
+                forget_assigned_variables(symtab)
                 fns.concat eif.body.reachable_functions(symtab, cache)
                 return fns # no need to keep going
               end
             end
             value_else(value_result) do
               # condition isn't known; body is potentially reachable
+              forget_assigned_variables(symtab)
               fns.concat eif.body.reachable_functions(symtab, cache)
             end
           end
+          forget_assigned_variables(symtab)
           fns.concat final_else_body.reachable_functions(symtab, cache)
         end
       end
@@ -182,16 +247,20 @@ module Idl
 
       fns = condition.is_a?(FunctionCallExpressionAst) ? condition.reachable_functions(symtab, cache) : []
 
+      may_run = false
       value_result = value_try do
         if condition.value(symtab)
+          may_run = true
           fns.concat action.reachable_functions(symtab, cache)
-          # no need to execute action (return)
+          # the action is not executed here, so any variable it assigns is no longer known below
         end
       end
       value_else(value_result) do
         # condition not known
+        may_run = true
         fns = fns.concat action.reachable_functions(symtab, cache)
       end
+      action.forget_assigned_variables(symtab) if may_run
 
       fns
     end
@@ -209,12 +278,17 @@ module Idl
         fns = init.is_a?(FunctionCallExpressionAst) ? init.reachable_functions(symtab, cache) : []
         fns.concat(condition.reachable_functions(symtab, cache))
         fns.concat(update.reachable_functions(symtab, cache))
+        # The body runs an unknown number of times, and a value assigned late in it is visible to
+        # the earlier statements of the next iteration, so nothing assigned in it is known on entry
+        # or on exit.
+        stmts.each { |stmt| stmt.forget_assigned_variables(symtab) }
         stmts.each do |stmt|
           fns.concat(stmt.reachable_functions(symtab, cache))
         end
       ensure
         symtab.pop
       end
+      stmts.each { |stmt| stmt.forget_assigned_variables(symtab) }
       fns
     end
   end
