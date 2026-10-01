@@ -8,13 +8,13 @@ PATH
 PATH
   remote: tools/ruby-gems/idl_highlighter
   specs:
-    idl_highlighter (0.1.0)
+    idl_highlighter (0.1.1)
       rouge
 
 PATH
   remote: tools/ruby-gems/idlc
   specs:
-    idlc (0.1.5)
+    idlc (0.1.6)
       activesupport
       commander (~> 5)
       pp
@@ -25,34 +25,34 @@ PATH
 PATH
   remote: tools/ruby-gems/udb-gen
   specs:
-    udb-gen (0.1.12)
+    udb-gen (0.1.13)
       asciidoctor
       asciidoctor-diagram
       asciidoctor-pdf
-      idl_highlighter (= 0.1.0)
+      idl_highlighter (= 0.1.1)
       rake
       sorbet-runtime
       tty-exit
       tty-option
       tty-progressbar
       tty-table
-      udb (= 0.1.13)
+      udb (= 0.1.14)
       write_xlsx
 
 PATH
   remote: tools/ruby-gems/udb_helpers
   specs:
-    udb_helpers (0.1.3)
+    udb_helpers (0.1.4)
 
 PATH
   remote: tools/ruby-gems/udb
   specs:
-    udb (0.1.13)
+    udb (0.1.14)
       activesupport
       asciidoctor
       awesome_print
       concurrent-ruby
-      idlc (= 0.1.5)
+      idlc (= 0.1.6)
       json_schemer
       numbers_and_words
       ostruct
@@ -66,7 +66,7 @@ PATH
       tty-command
       tty-logger
       tty-progressbar
-      udb_helpers (= 0.1.3)
+      udb_helpers (= 0.1.4)
       z3
 
 GEM
