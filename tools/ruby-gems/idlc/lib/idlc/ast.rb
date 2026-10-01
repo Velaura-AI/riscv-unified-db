@@ -2959,7 +2959,6 @@ module Idl
 
     def initialize(input, interval, lhs_ast, rhs_ast)
       super(input, interval, [lhs_ast, rhs_ast])
-      @vars = {}
     end
 
     # @!macro type_check
@@ -2978,14 +2977,16 @@ module Idl
       end
     end
 
-    def var(symtab)
-      variable = @vars[symtab.name]
-      if variable.nil?
-        variable = symtab.get(lhs.text_value)
-        @vars[symtab.name] = variable
-      end
-      variable
-    end
+    # The Var to assign to, looked up in THIS symbol table.
+    #
+    # Do not cache the result on this node. A Var belongs to one symbol table instance, and a node
+    # is walked against many: symbol tables are cloned per function and per pass, and every table
+    # built for one configuration shares that configuration's name, so `symtab.name` cannot tell
+    # instances apart. An earlier version memoized the Var per `symtab.name`; once a node had been
+    # walked against one table it kept assigning into that table's Var. The table now being walked
+    # never saw the assignment, so a variable assigned an unknown value kept its old, known value
+    # and conditions on it were folded to constants (pruning reachable code).
+    def var(symtab) = symtab.get(lhs.text_value)
 
     # @!macro execute
     def execute(symtab)
