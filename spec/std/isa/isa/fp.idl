@@ -582,7 +582,10 @@ function f32_sqrt {
   }
   body {
     Bits<1> signA = signF32UI(a);
-    Bits<8> expA = expF32UI(a);
+    # Bits<16>, not Bits<8>: a subnormal input's normalized exponent (norm.exp
+    # below) is negative, and an 8-bit local would truncate it before the
+    # 16-bit expZ arithmetic reads it.
+    Bits<16> expA = expF32UI(a);
     Bits<32> fracA = fracF32UI(a);
 
     if (expA == 8'hFF) {
@@ -1865,7 +1868,7 @@ function round_f32_to_integral {
 }
 
 struct ExpAndSig {
-  Bits<8> exp;Bits<32> sig;
+  Bits<16> exp;Bits<32> sig;
 }
 
 function softfloat_normSubnormalF32Sig {
@@ -1874,11 +1877,19 @@ function softfloat_normSubnormalF32Sig {
   description {
     Normalize a subnormal F32 significand.
     Returns (exp, sig32) where exp is the adjusted exponent (two's complement
-    in Bits<8>) and sig32 is the normalized significand with implicit leading 1
+    in Bits<16>) and sig32 is the normalized significand with implicit leading 1
     at bit 23.
+
+    exp is Bits<16>, matching Berkeley Softfloat's int_fast16_t, because
+    `1 - shiftDist` is negative for every subnormal (shiftDist runs 1..23, so
+    exp runs 0..-22) and every caller assigns it to a 16-bit exponent. IDL
+    assignment widens by zero-extension, so an 8-bit field turned -22 into +234
+    on the way in. shiftDist is Bits<16> for the same reason: with both operands
+    16 bits wide, `1 - shiftDist` is computed at 16 bits, not computed at 8 bits
+    and then zero-extended.
   }
   body {
-    Bits<8> shiftDist = count_leading_zeros(32, sig) - 8;
+    Bits<16> shiftDist = count_leading_zeros(32, sig) - 8;
     ExpAndSig ret;
     ret.exp = 1 - shiftDist;
     ret.sig = sig << shiftDist;
