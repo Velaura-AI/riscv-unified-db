@@ -1295,6 +1295,14 @@ function access_check {
       raise(fault_type, from_mode, vaddr);
     }
 
+    # check that something is there: an access no PMA region backs -- neither main memory nor an
+    # I/O region -- has nowhere to go, so it is an access fault rather than a read or write of
+    # nothing
+    if (!pma_applies?(PmaAttribute::MainMemory, paddr, access_size) &&
+        !pma_applies?(PmaAttribute::IO, paddr, access_size)) {
+      raise(fault_type, from_mode, vaddr);
+    }
+
     # check PMP
     if (NUM_PMP_ENTRIES > 0) {
       if (!pmp_check(paddr[PHYS_ADDR_WIDTH - 1 : 0], access_size, type)) {
@@ -2927,6 +2935,11 @@ function amo {
       ? translate(virtual_address, MemoryOperation::ReadModifyWrite, effective_ldst_mode(),
           encoding).paddr
       : virtual_address;
+
+    # the same physical-address, PMA-backing and PMP checks every other store makes: an AMO
+    # writes, so a PMP region that denies writes (or no region at all) faults it
+    access_check(physical_address, N, virtual_address, MemoryOperation::Write,
+        ExceptionCode::StoreAmoAccessFault, effective_ldst_mode());
 
     # PMA Atomicity checks
     if (pma_applies?(PmaAttribute::AmoNone, physical_address, N)) {
