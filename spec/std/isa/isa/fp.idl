@@ -104,7 +104,8 @@ function rm_to_mode {
     +encoding+ is the full encoding of the instruction +rm+ comes from.
 
     Will raise an IllegalInstruction exception if rm is a
-    reserved encoding.
+    reserved encoding, or if rm is DYN and fcsr.FRM holds a
+    reserved encoding (5, 6 or 7).
   }
   body {
     if (rm == $bits(RoundingMode::RNE)) {
@@ -118,6 +119,11 @@ function rm_to_mode {
     } else if (rm == $bits(RoundingMode::RMM)) {
       return RoundingMode::RMM;
     } else if (rm == $bits(RoundingMode::DYN)) {
+      # FRM's values above RMM are reserved, and DYN (7) is not a mode FRM can hold either: an
+      # instruction that rounds dynamically while FRM holds one of them is illegal
+      if (CSR[fcsr].FRM > $bits(RoundingMode::RMM)) {
+        raise(ExceptionCode::IllegalInstruction, mode(), encoding);
+      }
       return $enum(RoundingMode, CSR[fcsr].FRM);
     } else {
       raise(ExceptionCode::IllegalInstruction, mode(), encoding);
@@ -1754,6 +1760,9 @@ function i32_to_f32_no_flag {
   description {
     Converts 32-bit signed integer to 32-bit floating point number
     No flags to be set
+
+    i32_to_f32 without the flag: a negative a's magnitude is its two's complement negation, not
+    a with bit 31 cleared (returnMag, which is a float encoding's magnitude).
   }
   body {
     # sign of integer, it is 1 when negative
@@ -1761,7 +1770,7 @@ function i32_to_f32_no_flag {
     if ((a & 0x7FFFFFFF) == 0) {
       return (sign == 1) ? packToF32UI(1, 0x9E, 0) : packToF32UI(0, 0, 0);
     }
-    U32 magnitude_of_A = returnMag(a);
+    U32 magnitude_of_A = (sign == 1) ? -a : a;
     return softfloat_normRoundPackToF32_no_flag(sign, 0x9C, magnitude_of_A, mode);
   }
 }
@@ -1812,14 +1821,17 @@ function f32_to_i32_no_flag {
   description {
     Converts 32-bit floating point number to a signed 32-bit integer
     No flags to be set
+
+    f32_to_i32 without the flag: the locals have f32_to_i32's widths. sig must hold the hidden
+    bit (bit 23) ORed into it, and shiftDist must go negative, not wrap, for |a| >= 2^43.
   }
   body {
     Bits<1> sign = signF32UI(a);
-    Bits<8> exp = expF32UI(a);
-    Bits<23> sig = fracF32UI(a);
-    Bits<8> shiftDist;
+    Bits<16> exp = expF32UI(a);
+    Bits<32> sig = fracF32UI(a);
+    Bits<16> shiftDist;
     U64 sig64;
-    # for NaN return the highest positive value and set floating-point flag to invalid.
+    # for NaN return the highest positive value
     if ((exp == 8'hFF) && (sig != 0)) {
       sign = 0;
       return I32_NAN;
@@ -1833,11 +1845,40 @@ function f32_to_i32_no_flag {
     sig64 = sig `<< 32;
     shiftDist = 8'hAA - exp;
 
-    if (shiftDist > 0) {
+    if ($signed(shiftDist) > 0s) {
       sig64 = softfloat_shiftRightJam64(sig64, shiftDist);
     }
 
     return softfloat_roundToI32_no_flag(sign, sig64, mode);
+  }
+}
+
+function round_f32_to_integral_no_flag {
+  returns U32
+  arguments U32 a,
+    RoundingMode mode
+  description {
+    Rounds a 32-bit floating point number to an integral value, per +mode+, and returns it as a
+    32-bit floating point number. No flags are set; see round_f32_to_integral.
+
+      * A NaN, quiet or signaling, yields the canonical NaN.
+      * |a| >= 2^23 (biased exponent >= 0x96), infinities included, is already integral and is
+        returned unchanged. This also keeps every value that reaches the integer round trip
+        below inside the i32 range, where the round trip is exact.
+      * Zeros are returned unchanged.
+      * Otherwise a is rounded through f32_to_i32_no_flag and i32_to_f32_no_flag. That
+        round trip has no negative zero, so a negative input keeps its sign: -0.3 rounds to
+        -0, not +0.
+  }
+  body {
+    if (is_sp_nan?(a)) {
+      return SP_CANONICAL_NAN;
+    }
+    if ((expF32UI(a) >= 8'h96) || ((a & 32'h7FFFFFFF) == 0)) {
+      return a;
+    }
+    U32 intermediate = f32_to_i32_no_flag(a, mode);
+    return i32_to_f32_no_flag(intermediate, mode) | (a & 32'h80000000);
   }
 }
 
@@ -1846,24 +1887,15 @@ function round_f32_to_integral {
   arguments U32 a,
     RoundingMode mode
   description {
-    Rounds 32-bit floating point number to a signed 32-bit integer.
-    This 32-bit integer is represented as a floating point number and returned.
+    Rounds a 32-bit floating point number to an integral value, per +mode+, and returns it as a
+    32-bit floating point number: round_f32_to_integral_no_flag's value, raising NV for a
+    signaling NaN and no other flag.
   }
   body {
-    if ((is_sp_neg_inf?(a)) || (is_sp_pos_inf?(a)) || (is_sp_pos_zero?(a)) ||
-          (is_sp_neg_zero?(a))) {
-      # Return zero or infinity respectively for zero or infinity inputs
-      return a;
-    } else if (is_sp_signaling_nan?(a)) {
-      # set invalid flag for signaling NaN
+    if (is_sp_signaling_nan?(a)) {
       set_fp_flag(FpFlag::NV);
-      return a;
-    } # intermediate variable for storing 32-bit rounded integer
-    U32 intermediate;
-    # round 32-bit floating point number to integer, no flags to be set
-    intermediate = f32_to_i32_no_flag(a, mode);
-    # represent the integer as floating point number
-    return i32_to_f32_no_flag(intermediate, mode);
+    }
+    return round_f32_to_integral_no_flag(a, mode);
   }
 }
 
