@@ -1850,29 +1850,49 @@ function f32_to_i32_no_flag {
   }
 }
 
+function round_f32_to_integral_no_flag {
+  returns U32
+  arguments U32 a,
+    RoundingMode mode
+  description {
+    Rounds a 32-bit floating point number to an integral value, per +mode+, and returns it as a
+    32-bit floating point number. No flags are set; see round_f32_to_integral.
+
+      * A NaN, quiet or signaling, yields the canonical NaN.
+      * |a| >= 2^23 (biased exponent >= 0x96), infinities included, is already integral and is
+        returned unchanged. This also keeps every value that reaches the integer round trip
+        below inside the i32 range, where the round trip is exact.
+      * Zeros are returned unchanged.
+      * Otherwise a is rounded through f32_to_i32_no_flag and i32_to_f32_no_flag. That
+        round trip has no negative zero, so a negative input keeps its sign: -0.3 rounds to
+        -0, not +0.
+  }
+  body {
+    if (is_sp_nan?(a)) {
+      return SP_CANONICAL_NAN;
+    }
+    if ((expF32UI(a) >= 8'h96) || ((a & 32'h7FFFFFFF) == 0)) {
+      return a;
+    }
+    U32 intermediate = f32_to_i32_no_flag(a, mode);
+    return i32_to_f32_no_flag(intermediate, mode) | (a & 32'h80000000);
+  }
+}
+
 function round_f32_to_integral {
   returns U32
   arguments U32 a,
     RoundingMode mode
   description {
-    Rounds 32-bit floating point number to a signed 32-bit integer.
-    This 32-bit integer is represented as a floating point number and returned.
+    Rounds a 32-bit floating point number to an integral value, per +mode+, and returns it as a
+    32-bit floating point number: round_f32_to_integral_no_flag's value, raising NV for a
+    signaling NaN and no other flag.
   }
   body {
-    if ((is_sp_neg_inf?(a)) || (is_sp_pos_inf?(a)) || (is_sp_pos_zero?(a)) ||
-          (is_sp_neg_zero?(a))) {
-      # Return zero or infinity respectively for zero or infinity inputs
-      return a;
-    } else if (is_sp_signaling_nan?(a)) {
-      # set invalid flag for signaling NaN
+    if (is_sp_signaling_nan?(a)) {
       set_fp_flag(FpFlag::NV);
-      return a;
-    } # intermediate variable for storing 32-bit rounded integer
-    U32 intermediate;
-    # round 32-bit floating point number to integer, no flags to be set
-    intermediate = f32_to_i32_no_flag(a, mode);
-    # represent the integer as floating point number
-    return i32_to_f32_no_flag(intermediate, mode);
+    }
+    return round_f32_to_integral_no_flag(a, mode);
   }
 }
 
