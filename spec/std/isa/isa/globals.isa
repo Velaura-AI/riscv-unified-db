@@ -1072,8 +1072,9 @@ function pmp_match_64 {
         range_limit = range_base + mask;
         active = true;
       } else if (cfg.A == $bits(PmpCfg_A::NA4)) {
+        # a naturally aligned four-byte region: one word
         range_base = pmpaddr_csr_value[PHYS_ADDR_WIDTH - 1 : 0];
-        range_limit = range_base + 3;
+        range_limit = range_base;
         active = true;
       }
 
@@ -1157,8 +1158,9 @@ function pmp_match_32 {
         range_limit = range_base + mask;
         active = true;
       } else if (cfg.A == $bits(PmpCfg_A::NA4)) {
+        # a naturally aligned four-byte region: one word
         range_base = pmpaddr_csr_value[PHYS_ADDR_WIDTH - 1 : 0];
-        range_limit = range_base + 3;
+        range_limit = range_base;
         active = true;
       }
 
