@@ -1818,14 +1818,17 @@ function f32_to_i32_no_flag {
   description {
     Converts 32-bit floating point number to a signed 32-bit integer
     No flags to be set
+
+    f32_to_i32 without the flag: the locals have f32_to_i32's widths. sig must hold the hidden
+    bit (bit 23) ORed into it, and shiftDist must go negative, not wrap, for |a| >= 2^43.
   }
   body {
     Bits<1> sign = signF32UI(a);
-    Bits<8> exp = expF32UI(a);
-    Bits<23> sig = fracF32UI(a);
-    Bits<8> shiftDist;
+    Bits<16> exp = expF32UI(a);
+    Bits<32> sig = fracF32UI(a);
+    Bits<16> shiftDist;
     U64 sig64;
-    # for NaN return the highest positive value and set floating-point flag to invalid.
+    # for NaN return the highest positive value
     if ((exp == 8'hFF) && (sig != 0)) {
       sign = 0;
       return I32_NAN;
@@ -1839,7 +1842,7 @@ function f32_to_i32_no_flag {
     sig64 = sig `<< 32;
     shiftDist = 8'hAA - exp;
 
-    if (shiftDist > 0) {
+    if ($signed(shiftDist) > 0s) {
       sig64 = softfloat_shiftRightJam64(sig64, shiftDist);
     }
 
