@@ -474,7 +474,7 @@ function f32_muladd {
       if (sigC != 0) {
         return SP_CANONICAL_NAN;
       }
-      return {signC, c[30:0]};
+      return {signC, c[30 : 0]};
     }
 
     # Handle zero/subnormal A
@@ -483,7 +483,7 @@ function f32_muladd {
         if (((expC | sigC) == 0) && (signProd != signC)) {
           return packToF32UI((mode == RoundingMode::RDN) ? 1 : 0, 0, 0);
         }
-        return {signC, c[30:0]};
+        return {signC, c[30 : 0]};
       }
       ExpAndSig norm = softfloat_normSubnormalF32Sig(sigA);
       expA = norm.exp;
@@ -496,7 +496,7 @@ function f32_muladd {
         if (((expC | sigC) == 0) && (signProd != signC)) {
           return packToF32UI((mode == RoundingMode::RDN) ? 1 : 0, 0, 0);
         }
-        return {signC, c[30:0]};
+        return {signC, c[30 : 0]};
       }
       ExpAndSig norm = softfloat_normSubnormalF32Sig(sigB);
       expB = norm.exp;
