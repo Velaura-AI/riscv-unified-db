@@ -46,16 +46,21 @@ fields:
         return csr_value.ADDR;
       }
 sw_read(): |
-  # when the mode is NAPOT and PMP_GRANULARITY >= 16,
-  # bits (PMP_GRANULARITY-4):0 must read as ones
+  # PMP_GRANULARITY is G+2, where G is the privileged spec's granularity (a granule of 2^(G+2)
+  # bytes), so pmpaddr bit k is address bit k+2 and the spec's two read-back rules are:
+  #  * G >= 2 (PMP_GRANULARITY >= 4), A[1] set (NAPOT, or NA4 left over from a time it was
+  #    legal): bits G-2:0, i.e. (PMP_GRANULARITY-4):0, read as ones -- no NAPOT region is
+  #    smaller than one granule;
+  #  * G >= 1 (PMP_GRANULARITY >= 3), A[1] clear (OFF or TOR): bits G-1:0, i.e.
+  #    (PMP_GRANULARITY-3):0, read as zeros -- a TOR bound is granule-aligned.
+  # pmp_match reads pmpaddr through this function, so the matched region follows the read value.
   if (MXLEN == 32) {
-    if ((PMP_GRANULARITY >= 16) &&
+    if ((PMP_GRANULARITY >= 4) &&
           (CSR[pmpcfg4].pmp16cfg[4] == 1)) {
       return CSR[pmpaddr16].ADDR | {PMP_GRANULARITY - 3{1'b1}};
 
-      # when the mode is OFF or TOR and PMP_GRANULARITY >= 8,
-      # bits (PMP_GRANULARITY-3):0 must read as zeros
-    } else if ((PMP_GRANULARITY >= 8) &&
+      # OFF or TOR and PMP_GRANULARITY >= 3: bits (PMP_GRANULARITY-3):0 read as zeros
+    } else if ((PMP_GRANULARITY >= 3) &&
           (CSR[pmpcfg4].pmp16cfg[4] == 0)) {
       Bits<PHYS_ADDR_WIDTH-2> mask = {PMP_GRANULARITY - 2{1'b1}};
       return CSR[pmpaddr16].ADDR & ~mask;
@@ -65,13 +70,12 @@ sw_read(): |
       return CSR[pmpaddr16].ADDR;
     }
   } else {
-    if ((PMP_GRANULARITY >= 16) &&
+    if ((PMP_GRANULARITY >= 4) &&
           (CSR[pmpcfg4].pmp16cfg[4] == 1)) {
       return CSR[pmpaddr16].ADDR | {PMP_GRANULARITY - 3{1'b1}};
 
-      # when the mode is OFF or TOR and PMP_GRANULARITY >= 8,
-      # bits (PMP_GRANULARITY-3):0 must read as zeros
-    } else if ((PMP_GRANULARITY >= 8) &&
+      # OFF or TOR and PMP_GRANULARITY >= 3: bits (PMP_GRANULARITY-3):0 read as zeros
+    } else if ((PMP_GRANULARITY >= 3) &&
           (CSR[pmpcfg4].pmp16cfg[4] == 0)) {
       Bits<PHYS_ADDR_WIDTH-2> mask = {PMP_GRANULARITY - 2{1'b1}};
       return CSR[pmpaddr16].ADDR & ~mask;
