@@ -104,7 +104,8 @@ function rm_to_mode {
     +encoding+ is the full encoding of the instruction +rm+ comes from.
 
     Will raise an IllegalInstruction exception if rm is a
-    reserved encoding.
+    reserved encoding, or if rm is DYN and fcsr.FRM holds a
+    reserved encoding (5, 6 or 7).
   }
   body {
     if (rm == $bits(RoundingMode::RNE)) {
@@ -118,6 +119,11 @@ function rm_to_mode {
     } else if (rm == $bits(RoundingMode::RMM)) {
       return RoundingMode::RMM;
     } else if (rm == $bits(RoundingMode::DYN)) {
+      # FRM's values above RMM are reserved, and DYN (7) is not a mode FRM can hold either: an
+      # instruction that rounds dynamically while FRM holds one of them is illegal
+      if (CSR[fcsr].FRM > $bits(RoundingMode::RMM)) {
+        raise(ExceptionCode::IllegalInstruction, mode(), encoding);
+      }
       return $enum(RoundingMode, CSR[fcsr].FRM);
     } else {
       raise(ExceptionCode::IllegalInstruction, mode(), encoding);
