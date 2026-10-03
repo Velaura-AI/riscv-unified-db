@@ -2936,8 +2936,11 @@ function amo {
           encoding).paddr
       : virtual_address;
 
-    # the same physical-address, PMA-backing and PMP checks every other store makes: an AMO
-    # writes, so a PMP region that denies writes (or no region at all) faults it
+    # the same physical-address, PMA-backing and PMP checks every other access makes. An AMO both
+    # reads and writes the location, so it needs read AND write permission; whichever is missing,
+    # the fault is a store/AMO access fault, never a load access fault
+    access_check(physical_address, N, virtual_address, MemoryOperation::Read,
+        ExceptionCode::StoreAmoAccessFault, effective_ldst_mode());
     access_check(physical_address, N, virtual_address, MemoryOperation::Write,
         ExceptionCode::StoreAmoAccessFault, effective_ldst_mode());
 
