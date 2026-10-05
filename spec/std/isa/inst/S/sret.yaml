@@ -132,6 +132,9 @@ operation(): |
     CSR[mstatus].SIE = CSR[mstatus].SPIE;
     CSR[mstatus].SPIE = 1;
     CSR[mstatus].SPP = 2'b00;
+    # SIE was just restored from SPIE, which can change what is pending and enabled; set_mode above
+    # refreshes only when the privilege mode actually changed
+    refresh_pending_interrupts();
     $pc = $bits(CSR[sepc]);
   } else if (implemented?(ExtensionName::H)) {
     if (CSR[mstatus].TSR == 1'b1) {
@@ -140,6 +143,8 @@ operation(): |
     CSR[vsstatus].SPP = 0;
     CSR[vsstatus].SIE = CSR[vsstatus].SPIE;
     CSR[vsstatus].SPIE = 1;
+    # SIE was just restored from SPIE (see the non-virtual case above)
+    refresh_pending_interrupts();
     $pc = $bits(CSR[vsepc]);
   } else {
     unreachable();

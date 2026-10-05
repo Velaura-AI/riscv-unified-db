@@ -338,6 +338,10 @@ function take_interrupt {
     if (to_mode == PrivilegeMode::M) {
       CSR[mepc].PC = $pc;
       CSR[mstatus].MPP = $bits(mode())[1 : 0];
+      # push the interrupt-enable stack: the handler runs with M-mode interrupts disabled, and mret
+      # restores MIE from MPIE
+      CSR[mstatus].MPIE = CSR[mstatus].MIE;
+      CSR[mstatus].MIE = 1'b0;
       if (CSR[misa].H == 1'b1) {
         if (MXLEN == 64) {
           CSR[mstatus].MPV = $bits(mode())[2];
@@ -360,6 +364,9 @@ function take_interrupt {
     } else if ((CSR[misa].S == 1'b1) && (to_mode == PrivilegeMode::S)) {
       CSR[sepc].PC = $pc;
       CSR[mstatus].SPP = $bits(mode())[0];
+      # push the interrupt-enable stack (see the M-mode case); sret restores SIE from SPIE
+      CSR[mstatus].SPIE = CSR[mstatus].SIE;
+      CSR[mstatus].SIE = 1'b0;
       if (CSR[misa].H == 1'b1) {
         CSR[hstatus].SPV = $bits(mode())[2];
       }
@@ -376,6 +383,9 @@ function take_interrupt {
     } else if ((CSR[misa].H == 1'b1) && (to_mode == PrivilegeMode::VS)) {
       CSR[vsepc].PC = $pc;
       CSR[vsstatus].SPP = $bits(mode())[0];
+      # push the interrupt-enable stack (see the M-mode case); sret restores SIE from SPIE
+      CSR[vsstatus].SPIE = CSR[vsstatus].SIE;
+      CSR[vsstatus].SIE = 1'b0;
       CSR[vscause].CODE = $bits(code);
       CSR[vscause].INT = 1'b1;
       CSR[vstval].VALUE = 0;
@@ -389,5 +399,9 @@ function take_interrupt {
     }
 
     set_mode_no_refresh(to_mode);
+    # the stack push above cleared an interrupt-enable bit, which changes what is pending and
+    # enabled: without this the interrupt just taken would stay pending-and-enabled, and be taken
+    # again at the next fetch (choose_interrupt asserts the enable bit is set)
+    refresh_pending_interrupts();
   }
 }

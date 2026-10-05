@@ -654,6 +654,9 @@ function raise_guest_page_fault {
       # guest page faults always come from a virtual mode
       CSR[hstatus].SPVP = $bits(from_mode)[0];
       CSR[mstatus].SPP = $bits(from_mode)[0];
+      # push the interrupt-enable stack (see raise_precise); sret restores SIE from SPIE
+      CSR[mstatus].SPIE = CSR[mstatus].SIE;
+      CSR[mstatus].SIE = 1'b0;
     } else {
       assert(handling_mode == PrivilegeMode::M, "unexpected privilege mode");
       CSR[mtval2].VALUE = write_gpa_in_tval ? (gpa >> 2) : 0;
@@ -664,10 +667,16 @@ function raise_guest_page_fault {
       } else {
         CSR[mstatush].MPV = 1;
       }
+      # push the interrupt-enable stack (see raise_precise); mret restores MIE from MPIE
+      CSR[mstatus].MPIE = CSR[mstatus].MIE;
+      CSR[mstatus].MIE = 1'b0;
     }
 
     # abort the current instruction, and start to refetch from PC
     set_mode(handling_mode);
+    # the interrupt-enable stack push can change what is pending and enabled; set_mode refreshes
+    # only when the privilege mode actually changed
+    refresh_pending_interrupts();
     abort_current_instruction();
   }
 }
@@ -733,6 +742,10 @@ function raise_precise {
         }
       }
       CSR[mstatus].MPP = $bits(from_mode);
+      # push the interrupt-enable stack: the handler runs with M-mode interrupts disabled, and
+      # mret restores MIE from MPIE
+      CSR[mstatus].MPIE = CSR[mstatus].MIE;
+      CSR[mstatus].MIE = 1'b0;
     } else if (CSR[misa].S == 1 && (handling_mode == PrivilegeMode::S)) {
       CSR[sepc].PC = $pc;
       if (!stval_readonly?()) {
@@ -742,6 +755,9 @@ function raise_precise {
       CSR[scause].INT = 1'b0;
       CSR[scause].CODE = $bits(exception_code);
       CSR[mstatus].SPP = $bits(from_mode)[0];
+      # push the interrupt-enable stack (see the M-mode case); sret restores SIE from SPIE
+      CSR[mstatus].SPIE = CSR[mstatus].SIE;
+      CSR[mstatus].SIE = 1'b0;
       if (CSR[misa].H == 1) {
         # write zero into htval and hinst
         # (when these are non-zero values, raise_guest_page_fault should be callecd)
@@ -790,10 +806,16 @@ function raise_precise {
       CSR[vscause].INT = 1'b0;
       CSR[vscause].CODE = $bits(exception_code);
       CSR[vsstatus].SPP = $bits(from_mode)[0];
+      # push the interrupt-enable stack (see the M-mode case); sret restores SIE from SPIE
+      CSR[vsstatus].SPIE = CSR[vsstatus].SIE;
+      CSR[vsstatus].SIE = 1'b0;
     }
 
     # abort the current instruction, and start to refetch from PC
     set_mode(handling_mode);
+    # entering the handler cleared an interrupt-enable bit, which can change what is pending and
+    # enabled; set_mode refreshes only when the privilege mode actually changed
+    refresh_pending_interrupts();
     abort_current_instruction();
   }
 }
