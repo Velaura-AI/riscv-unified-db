@@ -41,4 +41,7 @@ operation(): |
     set_mode(PrivilegeMode::M);
   }
   CSR[mstatus].MPP = implemented?(ExtensionName::U) ? 2'b00 : 2'b11;
+  # MIE was just restored from MPIE, which can change what is pending and enabled; set_mode above
+  # refreshes only when the privilege mode actually changed
+  refresh_pending_interrupts();
   $pc = $bits(CSR[mepc]);
