@@ -1330,11 +1330,44 @@ function access_check {
   description {
     Checks if the physical address paddr is able to access memory, and raises
     the appropriate exception if not.
+
+    The decision is access_ok's. A result cached by cached_access_check skips it; an allowed
+    access whose whole 4 KiB page is also allowed is offered to maybe_cache_access_check. Only
+    allowed accesses are ever cached, so a denied access always reaches the raise below.
+  }
+  body {
+    if (cached_access_check(paddr, access_size, type)) {
+      return;
+    }
+
+    if (!access_ok(paddr, access_size, type)) {
+      raise(fault_type, from_mode, vaddr);
+    }
+
+    # the whole page is asked separately: a page-wide true answer makes every access inside the
+    # page allowed for this type (the first PMP entry overlapping the page then contains it, and
+    # PMA regions are pairwise disjoint), so the page may be cached
+    Bits<PHYS_ADDR_WIDTH> page_paddr = (paddr >> 12) << 12;
+    if (access_ok(page_paddr, 32'd32768, type)) {
+      maybe_cache_access_check(page_paddr, type);
+    }
+  }
+}
+
+function access_ok {
+  returns Boolean
+  arguments Bits<PHYS_ADDR_WIDTH> paddr,
+    U32 access_size,
+    MemoryOperation type
+  description {
+    Returns true if an access of +access_size+ bits at physical address +paddr+ for +type+
+    passes the physical address range, PMA and PMP checks, i.e. if access_check would not
+    raise for it. Has no side effects.
   }
   body {
     # check if this is a valid physical address
     if (paddr > ((1 `<< PHYS_ADDR_WIDTH) - access_size)) {
-      raise(fault_type, from_mode, vaddr);
+      return false;
     }
 
     # check that something is there: an access no PMA region backs -- neither main memory nor an
@@ -1342,15 +1375,17 @@ function access_check {
     # nothing
     if (!pma_applies?(PmaAttribute::MainMemory, paddr, access_size) &&
         !pma_applies?(PmaAttribute::IO, paddr, access_size)) {
-      raise(fault_type, from_mode, vaddr);
+      return false;
     }
 
     # check PMP
     if (NUM_PMP_ENTRIES > 0) {
       if (!pmp_check(paddr[PHYS_ADDR_WIDTH - 1 : 0], access_size, type)) {
-        raise(fault_type, from_mode, vaddr);
+        return false;
       }
     }
+
+    return true;
   }
 }
 

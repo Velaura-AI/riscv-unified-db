@@ -54,6 +54,7 @@ operation(): |
     vma_type.global = true;
 
     invalidate_translations(vma_type);
+    invalidate_access_checks();
   } else if ((xs1 == 0) && (xs2 != 0)) {
     # invalidates all translations from ASID 'asid'
     # does not affect global mappings
@@ -61,6 +62,7 @@ operation(): |
     vma_type.asid = asid;
 
     invalidate_translations(vma_type);
+    invalidate_access_checks();
   } else if ((xs1 != 0) && (xs2 == 0)) {
     # invalidate all translations from leaf page tables containing 'vaddr'
     # does not affect global mappings
@@ -69,6 +71,7 @@ operation(): |
       vma_type.vaddr = vaddr;
 
       invalidate_translations(vma_type);
+      invalidate_access_checks();
     } # else, silently do nothing
   } else {
     # invalidate all translations from leaf page tables for address space 'asid' containing 'vaddr'
@@ -80,5 +83,6 @@ operation(): |
       vma_type.vaddr = vaddr;
 
       invalidate_translations(vma_type);
+      invalidate_access_checks();
     } # else, silently do nothing
   }
