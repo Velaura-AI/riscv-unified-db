@@ -1345,8 +1345,12 @@ function access_check {
     }
 
     # the whole page is asked separately: a page-wide true answer makes every access inside the
-    # page allowed for this type (the first PMP entry overlapping the page then contains it, and
-    # PMA regions are pairwise disjoint), so the page may be cached
+    # page allowed for this type, so the page may be cached. For PMP, the first entry overlapping
+    # the page then contains it, so every access inside it matches that entry. For PMA it needs
+    # two properties of the platform's table: regions pairwise disjoint (the region containing
+    # the page is the only one containing any access inside it), and default attributes that
+    # allow neither MainMemory nor IO (a page no single region contains is answered by the
+    # defaults, so it is then never allowed). An implementation that caches must ensure both.
     Bits<PHYS_ADDR_WIDTH> page_paddr = (paddr >> 12) << 12;
     if (access_ok(page_paddr, 32'd32768, type)) {
       maybe_cache_access_check(page_paddr, type);
