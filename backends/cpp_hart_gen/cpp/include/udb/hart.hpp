@@ -305,6 +305,19 @@ namespace udb {
     void maybe_cache_translation(const PossiblyUnknownBits<64>& vaddr, MemoryOperation op,
                                  TranslationResult result) {}
 
+    // Permission-check cache builtins (cached_access_check, maybe_cache_access_check,
+    // invalidate_access_checks): this hart models no such cache, so a lookup never hits, a fill
+    // records nothing and a flush has nothing to flush.
+    template <typename PAddr, typename Size>
+    bool cached_access_check(const PAddr&, const Size&, MemoryOperation) const {
+      return false;
+    }
+
+    template <typename PAddr>
+    void maybe_cache_access_check(const PAddr&, MemoryOperation) {}
+
+    void invalidate_access_checks() {}
+
     void sfence_all() {}
     void sfence_asid(const PossiblyUnknownBits<16>& asid) {}
     void sfence_vaddr(const PossiblyUnknownBits<64>& vaddr) {}
