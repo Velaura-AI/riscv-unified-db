@@ -1378,7 +1378,7 @@ function access_ok {
     # I/O region -- has nowhere to go, so it is an access fault rather than a read or write of
     # nothing
     if (!pma_applies?(PmaAttribute::MainMemory, paddr, access_size) &&
-        !pma_applies?(PmaAttribute::IO, paddr, access_size)) {
+          !pma_applies?(PmaAttribute::IO, paddr, access_size)) {
       return false;
     }
 
