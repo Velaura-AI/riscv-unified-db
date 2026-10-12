@@ -400,6 +400,44 @@ builtin function invalidate_translations {
   }
 }
 
+builtin function cached_access_check {
+  returns Boolean # true if the access is known to be allowed
+  arguments Bits<PHYS_ADDR_WIDTH> paddr, # physical address
+    U32 access_size, # access size, in bits
+    MemoryOperation type # operation
+  description {
+    Possibly answers, from a cache of earlier permission checks, that the access of
+    +access_size+ bits at +paddr+ for +type+ is allowed by the physical address range,
+    PMA and PMP checks of access_check.
+
+    Returns true only if every byte of the access lies in a page that maybe_cache_access_check
+    has recorded as allowed for +type+ since the last invalidate_access_checks. Returns false
+    when nothing is known, in which case the caller performs the full check. This function
+    models a lookup in a cache of PMP/PMA check results. A valid implementation returns false.
+  }
+}
+
+builtin function maybe_cache_access_check {
+  arguments Bits<PHYS_ADDR_WIDTH> page_paddr, # page-aligned physical address
+    MemoryOperation type # operation
+  description {
+    Given that access_ok is true for the whole 4 KiB page at +page_paddr+ for +type+, potentially
+    record that every access inside that page is allowed for +type+. This function models a fill
+    of a cache of PMP/PMA check results; it is only called after the whole page has been checked.
+    A valid implementation does nothing.
+  }
+}
+
+builtin function invalidate_access_checks {
+  description {
+    Locally invalidate every cached PMP/PMA check result recorded by maybe_cache_access_check.
+    Called wherever cached translations are invalidated, since the privileged architecture makes
+    the address-translation fence the synchronization point for PMP caches as well.
+
+    A valid implementation does nothing if permission-check caching is not used.
+  }
+}
+
 function read_physical_memory {
   returns XReg
   arguments U32 len, XReg paddr

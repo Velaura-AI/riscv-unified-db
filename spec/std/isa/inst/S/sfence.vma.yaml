@@ -269,6 +269,7 @@ operation(): |
 
     order_pgtbl_writes_before_vmafence(vma_type);
     invalidate_translations(vma_type);
+    invalidate_access_checks();
     order_pgtbl_reads_after_vmafence(vma_type);
   } else if ((xs1 == 0) && (xs2 != 0)) {
     # invalidates all translations from ASID 'asid'
@@ -278,6 +279,7 @@ operation(): |
 
     order_pgtbl_writes_before_vmafence(vma_type);
     invalidate_translations(vma_type);
+    invalidate_access_checks();
     order_pgtbl_reads_after_vmafence(vma_type);
   } else if ((xs1 != 0) && (xs2 == 0)) {
     # invalidate all translations from leaf page tables containing 'vaddr'
@@ -288,6 +290,7 @@ operation(): |
 
       order_pgtbl_writes_before_vmafence(vma_type);
       invalidate_translations(vma_type);
+      invalidate_access_checks();
       order_pgtbl_reads_after_vmafence(vma_type);
     } # else, silently do nothing
   } else {
@@ -301,6 +304,7 @@ operation(): |
 
       order_pgtbl_writes_before_vmafence(vma_type);
       invalidate_translations(vma_type);
+      invalidate_access_checks();
       order_pgtbl_reads_after_vmafence(vma_type);
     } # else, silently do nothing
   }
