@@ -93,6 +93,14 @@ enum PmaAttribute {
   Cacheable # Cacheable memory region
   Coherent # Coherent memory region
   Idempotent # Idempotent memory region
+
+  # Supported access types (privileged spec, "Supported Access Type PMAs"): which kinds of access
+  # the region supports at all, before PMP. An I/O region may support any combination (a ROM is
+  # Readable and Executable but not Writable); a main memory region always supports read and write
+  # and says whether it supports instruction fetch.
+  Readable # Region supports loads
+  Writable # Region supports stores
+  Executable # Region supports instruction fetch
 }
 
 enum Pbmt {
@@ -1380,6 +1388,21 @@ function access_ok {
     if (!pma_applies?(PmaAttribute::MainMemory, paddr, access_size) &&
           !pma_applies?(PmaAttribute::IO, paddr, access_size)) {
       return false;
+    }
+
+    # check the access type is one the region supports: a read-modify-write needs both read and
+    # write support
+    if (type == MemoryOperation::Fetch) {
+      if (!pma_applies?(PmaAttribute::Executable, paddr, access_size)) {
+        return false;
+      }
+    } else {
+      if (type != MemoryOperation::Write && !pma_applies?(PmaAttribute::Readable, paddr, access_size)) {
+        return false;
+      }
+      if (type != MemoryOperation::Read && !pma_applies?(PmaAttribute::Writable, paddr, access_size)) {
+        return false;
+      }
     }
 
     # check PMP
