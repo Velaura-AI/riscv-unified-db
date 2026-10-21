@@ -56,6 +56,7 @@ enum RoundingMode {
   RDN 0b010 # Round Down (towards -&infin;)
   RUP 0b011 # Round Up (towards +&infin;)
   RMM 0b100 # Round to Nearest, ties to Max Magnitude
+  RO 0b101 # Round to Odd: truncate, then set the LSB if any discarded bit was nonzero (internal; reserved as an rm/frm encoding, so rm_to_mode never returns it)
   DYN 0b111 # Dynamic; use rm field in instruction
 }
 
@@ -1718,6 +1719,12 @@ function softfloat_roundPackToF32_no_flag {
   description {
     Round FP value according to +mdode+ and then pack it in IEEE format.
     No flags to be set
+
+    RoundingMode::RO rounds to odd: the magnitude is truncated, and its least significant bit is
+    set when any discarded bit (the 7 round bits, including those shifted out of a subnormal) was
+    nonzero. Overflow gives the largest finite value, as for any mode that rounds toward zero.
+    Rounding to odd at 24 bits and then to nearest-even at p <= 22 bits equals one
+    round-to-nearest-even at p bits.
   }
   body {
     Bits<8> roundIncrement = 0x40;
@@ -1743,6 +1750,9 @@ function softfloat_roundPackToF32_no_flag {
     if ((roundBits == 0x40) && (mode == RoundingMode::RNE)) {
       sig = sig & ~32'b1;
       # Clear only the LSB
+    }
+    if ((mode == RoundingMode::RO) && (roundBits != 0)) {
+      sig = sig | 32'b1;
     }
     if (sig == 0) {
       exp = 0;
