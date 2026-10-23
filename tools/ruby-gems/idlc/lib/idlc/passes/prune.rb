@@ -88,7 +88,14 @@ module Idl
           coerce_ary_element_widths(symtab, elements, max_element_width)
         end
       else
-        raise "TODO: #{type}"
+        # A bitfield or struct value has no literal form in IDL, so a prune that has learned such
+        # a value (a struct returned by a function whose every path is constant once a parameter
+        # folds -- pmp_match_64 with NUM_PMP_ENTRIES == 0 makes pmp_check's
+        # `PmpCfg cfg = pmp_result.cfg;` one) keeps the expression that produced it, exactly as
+        # it keeps any expression whose value it cannot determine: every caller sits inside a
+        # value_try whose value_else re-emits the pruned children. Raising here instead aborted
+        # the prune of the whole function.
+        Idl::AstNode.value_error("No literal form for a #{type} value")
       end
     end
   end

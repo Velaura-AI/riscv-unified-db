@@ -852,3 +852,77 @@ class TestVariables < Minitest::Test
     assert_equal expected_ast.to_idl, pruned_ast.to_idl
   end
 end
+
+# A prune that can EVALUATE a struct member but cannot SPELL it: a struct returned by a function
+# whose every path is constant has a known value, and a member of bitfield (or struct) type has no
+# literal form in IDL. create_literal used to raise "TODO: bitfield ..." for it, aborting the whole
+# prune of any function that reads such a member -- the shape pmp_check hits the moment
+# NUM_PMP_ENTRIES is 0 (pmp_match_64's loop runs no iteration, so pmp_match returns a constant
+# PmpMatch and `PmpCfg cfg = pmp_result.cfg;` is a known bitfield). The expected result is the
+# expression kept as written, the same as for any value the prune cannot determine.
+class TestPruneUnspellableValues < Minitest::Test
+  include TestMixin
+
+  ISA = <<~IDL
+    %version: 1.0
+
+    bitfield (8) Cfg {
+      L 7
+      R 0
+    }
+
+    struct Match {
+      Boolean hit;
+      Cfg cfg;
+    }
+
+    function make_match {
+      returns Match
+      description {
+        A match whose cfg member is never assigned, so the whole value is known.
+      }
+      body {
+        Match m;
+        m.hit = false;
+        return m;
+      }
+    }
+
+    function use_match {
+      returns Bits<8>
+      description {
+        Reads the member the prune can evaluate but has no literal for.
+      }
+      body {
+        Match m = make_match();
+        Cfg c = m.cfg;
+        if (m.hit) {
+          return 8'd1;
+        }
+        return $bits(c);
+      }
+    }
+  IDL
+
+  def test_prune_keeps_a_known_member_access_of_bitfield_type
+    ast = @compiler.build_ast(ISA, root: :isa)
+    # A type's own type_check registers the type; a function's does not register the function,
+    # so the callee has to be registered first for use_match's call to resolve.
+    ast.functions.each { |f| f.add_symbol(@symtab) }
+    ast.type_check(@symtab, strict: false)
+    fn = ast.functions.find { |f| f.name == "use_match" }
+    refute_nil fn
+
+    # The shape ConfiguredArchitecture#pruned_global_ast prunes each function in: a writable
+    # scope pushed for apply_arg_syms, on a clone so the test's own table stays untouched.
+    symtab = @symtab.deep_clone
+    symtab.push(fn)
+    pruned = fn.prune(symtab)
+    symtab.pop
+
+    idl = pruned.to_idl
+    assert_includes idl, "m.cfg", "the bitfield-typed member access must survive the prune unchanged"
+    # The Boolean member of the same known struct IS spellable, so its `if` folds away.
+    refute_includes idl, "m.hit"
+  end
+end
