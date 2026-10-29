@@ -858,71 +858,106 @@ end
 # literal form in IDL. create_literal used to raise "TODO: bitfield ..." for it, aborting the whole
 # prune of any function that reads such a member -- the shape pmp_check hits the moment
 # NUM_PMP_ENTRIES is 0 (pmp_match_64's loop runs no iteration, so pmp_match returns a constant
-# PmpMatch and `PmpCfg cfg = pmp_result.cfg;` is a known bitfield). The expected result is the
-# expression kept as written, the same as for any value the prune cannot determine.
+# PmpMatch and `PmpCfg cfg = pmp_result.cfg;` is a known bitfield). Only that one expression is
+# kept as written: the struct's value stays known, so everything else that reads it still folds --
+# here the `if` on its Boolean member disappears when the member is false and its body becomes
+# unconditional when it is true. Each case compares the whole pruned body, so folding the wrong
+# branch fails as surely as not folding.
 class TestPruneUnspellableValues < Minitest::Test
   include TestMixin
 
-  ISA = <<~IDL
-    %version: 1.0
+  def isa(hit, expected_body)
+    <<~IDL
+      %version: 1.0
 
-    bitfield (8) Cfg {
-      L 7
-      R 0
-    }
-
-    struct Match {
-      Boolean hit;
-      Cfg cfg;
-    }
-
-    function make_match {
-      returns Match
-      description {
-        A match whose cfg member is never assigned, so the whole value is known.
+      bitfield (8) Cfg {
+        L 7
+        R 0
       }
-      body {
-        Match m;
-        m.hit = false;
-        return m;
-      }
-    }
 
-    function use_match {
-      returns Bits<8>
-      description {
-        Reads the member the prune can evaluate but has no literal for.
+      struct Match {
+        Boolean hit;
+        Cfg cfg;
       }
-      body {
-        Match m = make_match();
-        Cfg c = m.cfg;
-        if (m.hit) {
-          return 8'd1;
+
+      function make_match {
+        returns Match
+        description {
+          A match whose cfg member is never assigned, so the whole value is known.
         }
-        return $bits(c);
+        body {
+          Match m;
+          m.hit = #{hit};
+          return m;
+        }
       }
-    }
-  IDL
 
-  def test_prune_keeps_a_known_member_access_of_bitfield_type
-    ast = @compiler.build_ast(ISA, root: :isa)
+      function use_match {
+        returns Bits<8>
+        description {
+          Reads the member the prune can evaluate but has no literal for.
+        }
+        body {
+          Match m = make_match();
+          Cfg c = m.cfg;
+          if (m.hit) {
+            return 8'd1;
+          }
+          return $bits(c);
+        }
+      }
+
+      function expected {
+        returns Bits<8>
+        description {
+          What use_match's body must prune to.
+        }
+        body {
+          #{expected_body}
+        }
+      }
+    IDL
+  end
+
+  # Prunes use_match in the shape ConfiguredArchitecture#pruned_global_ast prunes each function
+  # in (a writable scope pushed for apply_arg_syms, on a clone so the test's own table stays
+  # untouched) and returns [pruned body, expected body] as IDL. A folded-away `if` leaves a NoopAst
+  # that renders as an empty line, so blank lines are dropped before comparing.
+  def prune_use_match(hit, expected_body)
+    ast = @compiler.build_ast(isa(hit, expected_body), root: :isa)
     # A type's own type_check registers the type; a function's does not register the function,
     # so the callee has to be registered first for use_match's call to resolve.
     ast.functions.each { |f| f.add_symbol(@symtab) }
     ast.type_check(@symtab, strict: false)
     fn = ast.functions.find { |f| f.name == "use_match" }
-    refute_nil fn
+    expected = ast.functions.find { |f| f.name == "expected" }
 
-    # The shape ConfiguredArchitecture#pruned_global_ast prunes each function in: a writable
-    # scope pushed for apply_arg_syms, on a clone so the test's own table stays untouched.
     symtab = @symtab.deep_clone
     symtab.push(fn)
     pruned = fn.prune(symtab)
     symtab.pop
 
-    idl = pruned.to_idl
-    assert_includes idl, "m.cfg", "the bitfield-typed member access must survive the prune unchanged"
-    # The Boolean member of the same known struct IS spellable, so its `if` folds away.
-    refute_includes idl, "m.hit"
+    [pruned.body.to_idl, expected.body.to_idl].map { |idl| idl.lines.map(&:strip).reject(&:empty?) }
+  end
+
+  def test_known_false_member_removes_the_if_and_keeps_the_bitfield_access
+    pruned, expected = prune_use_match(false, <<~IDL)
+      Match m = make_match();
+      Cfg c = m.cfg;
+      return $bits(c);
+    IDL
+    assert_equal expected, pruned
+  end
+
+  def test_known_true_member_makes_the_if_body_unconditional
+    # The `return $bits(c);` after it is unreachable but kept: IfAst#prune splices a known-true
+    # body in place and nothing removes the statements that follow, which predates this case.
+    pruned, expected = prune_use_match(true, <<~IDL)
+      Match m = make_match();
+      Cfg c = m.cfg;
+      return 8'd1;
+      return $bits(c);
+    IDL
+    assert_equal expected, pruned
   end
 end
