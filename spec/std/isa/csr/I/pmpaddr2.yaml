@@ -38,8 +38,10 @@ fields:
     reset_value(): |
       return 0;
     sw_write(csr_value): |
-      if (csr_value.ADDR >= ((1 `<< (PHYS_ADDR_WIDTH - 2)) - 1)) {
-        return UNDEFINED_LEGAL_DETERMINISTIC;
+      if (csr_value.ADDR > ((1 `<< (PHYS_ADDR_WIDTH - 2)) - 1)) {
+        # Bits above the physical address width are not implemented: keep the implemented bits
+        # (what a write of all ones, the usual granularity probe, reads back).
+        return csr_value.ADDR & ((1 `<< (PHYS_ADDR_WIDTH - 2)) - 1);
       } else if (NUM_PMP_ENTRIES <= 2) {
         return UNDEFINED_LEGAL_DETERMINISTIC;
       } else {
