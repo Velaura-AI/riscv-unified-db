@@ -376,6 +376,7 @@ params:
   # and associated pmpNcfg, will be read-only zero (but will not cause an exception).
   NUM_PMP_ENTRIES: 14
 
+  PMPADDR_ILLEGAL_WRITE_BEHAVIOR: custom
   # log2 of the smallest supported PMP region
   # generally, for systems with an MMU, should not be smaller than 12,
   # as that would preclude caching PMP results in the TLB along with

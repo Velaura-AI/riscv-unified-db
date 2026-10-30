@@ -1,0 +1,31 @@
+# Copyright (c) Velaura AI.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+# yaml-language-server: $schema=../../../schemas/param_schema.json
+
+$schema: param_schema.json#
+kind: parameter
+name: PMPADDR_ILLEGAL_WRITE_BEHAVIOR
+long_name: |
+  What happens when a `pmpaddr` CSR is written with bits above the physical address width
+definedBy:
+  param:
+    name: NUM_PMP_ENTRIES
+    greaterThan: 0
+description: |
+  `pmpaddrN.ADDR` holds bits PHYS_ADDR_WIDTH-1:2 of a physical address, so a value above
+  `(1 << (PHYS_ADDR_WIDTH - 2)) - 1` has bits no implementation backs. Software commonly writes all
+  ones to a `pmpaddr` to find the PMP granularity, so this matters.
+
+  Options:
+
+    mask::
+      The bits above the physical address width are dropped: `pmpaddrN` keeps only the
+      implemented bits of the written value.
+
+    custom::
+      The written value is illegal and `pmpaddrN` will obtain an unpredictable value.
+
+  Other values may be added over time once other common behaviors are identified.
+schema:
+  enum: [mask, custom]
