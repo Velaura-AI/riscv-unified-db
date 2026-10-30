@@ -674,8 +674,7 @@ function raise_guest_page_fault {
         CSR[mstatus].MPV = 1;
       } else {
         CSR[mstatush].MPV = 1;
-      }
-      # push the interrupt-enable stack (see raise_precise); mret restores MIE from MPIE
+      } # push the interrupt-enable stack (see raise_precise); mret restores MIE from MPIE
       CSR[mstatus].MPIE = CSR[mstatus].MIE;
       CSR[mstatus].MIE = 1'b0;
     }
@@ -1069,7 +1068,7 @@ function pmp_match_64 {
 
       Bits<12> pmpaddr_idx = pmpaddr0_addr + i;
       Csr pmpaddr_csr = direct_csr_lookup(pmpaddr_idx);
-      Bits<64> pmpaddr_csr_value = csr_sw_read(pmpaddr_csr);
+      Bits<64> pmpaddr_csr_value = csr_hw_read(pmpaddr_csr);
 
       # the region this entry guards, as inclusive word (address >> 2) bounds. An OFF entry, and
       # a TOR entry whose top is not above its base, guards no region at all and matches nothing
@@ -1084,7 +1083,7 @@ function pmp_match_64 {
         } else {
           # otherwise, it's the address in the next lowest pmpaddr register
           Csr tor_pmpaddr_csr = direct_csr_lookup(pmpaddr_idx - 1);
-          range_base = (csr_sw_read(tor_pmpaddr_csr))[PHYS_ADDR_WIDTH - 1 : 0];
+          range_base = (csr_hw_read(tor_pmpaddr_csr))[PHYS_ADDR_WIDTH - 1 : 0];
         }
         Bits<PHYS_ADDR_WIDTH> range_top = (pmpaddr_csr_value)[PHYS_ADDR_WIDTH - 1 : 0];
         active = range_top > range_base;
@@ -1155,7 +1154,7 @@ function pmp_match_32 {
 
       Bits<12> pmpaddr_idx = pmpaddr0_addr + i;
       Csr pmpaddr_csr = direct_csr_lookup(pmpaddr_idx);
-      Bits<32> pmpaddr_csr_value = csr_sw_read(pmpaddr_csr);
+      Bits<32> pmpaddr_csr_value = csr_hw_read(pmpaddr_csr);
 
       # the region this entry guards, as inclusive word (address >> 2) bounds. An OFF entry, and
       # a TOR entry whose top is not above its base, guards no region at all and matches nothing
@@ -1170,7 +1169,7 @@ function pmp_match_32 {
         } else {
           # otherwise, it's the address in the next lowest pmpaddr register
           Csr tor_pmpaddr_csr = direct_csr_lookup(pmpaddr_idx - 1);
-          range_base = csr_sw_read(tor_pmpaddr_csr)[PHYS_ADDR_WIDTH - 1 : 0];
+          range_base = csr_hw_read(tor_pmpaddr_csr)[PHYS_ADDR_WIDTH - 1 : 0];
         }
         Bits<PHYS_ADDR_WIDTH> range_top = (pmpaddr_csr_value)[PHYS_ADDR_WIDTH - 1 : 0];
         active = range_top > range_base;
@@ -1397,10 +1396,12 @@ function access_ok {
         return false;
       }
     } else {
-      if (type != MemoryOperation::Write && !pma_applies?(PmaAttribute::Readable, paddr, access_size)) {
+      if (type != MemoryOperation::Write && !pma_applies?(PmaAttribute::Readable, paddr,
+                access_size)) {
         return false;
       }
-      if (type != MemoryOperation::Read && !pma_applies?(PmaAttribute::Writable, paddr, access_size)) {
+      if (type != MemoryOperation::Read && !pma_applies?(PmaAttribute::Writable, paddr,
+                access_size)) {
         return false;
       }
     }
