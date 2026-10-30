@@ -408,7 +408,7 @@ builtin function cached_access_check {
   description {
     Possibly answers, from a cache of earlier permission checks, that the access of
     +access_size+ bits at +paddr+ for +type+ is allowed by the physical address range,
-    PMA and PMP checks of access_check.
+    PMA and (on a configuration with PMP entries) PMP checks of access_check.
 
     Returns true only if every byte of the access lies in a page that maybe_cache_access_check
     has recorded as allowed for +type+ since the last invalidate_access_checks. Returns false

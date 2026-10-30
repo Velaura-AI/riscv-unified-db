@@ -1372,8 +1372,9 @@ function access_ok {
     MemoryOperation type
   description {
     Returns true if an access of +access_size+ bits at physical address +paddr+ for +type+
-    passes the physical address range, PMA and PMP checks, i.e. if access_check would not
-    raise for it. Has no side effects.
+    passes the physical address range and PMA checks, and the PMP check on a configuration with
+    PMP entries (NUM_PMP_ENTRIES > 0), i.e. if access_check would not raise for it. Has no side
+    effects.
   }
   body {
     # check if this is a valid physical address
