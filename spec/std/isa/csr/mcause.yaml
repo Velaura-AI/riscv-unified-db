@@ -42,7 +42,7 @@ fields:
         return ILLEGAL_WLRL;
       } else {
         if (valid_exception_code?(csr_value.CODE)) {
-          return 1;
+          return 0;
         }
         return ILLEGAL_WLRL;
       }
