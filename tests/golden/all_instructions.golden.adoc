@@ -23979,7 +23979,7 @@ Encoding::
 ....
 
 Description::
-The xref:insts:fmv_x_w.adoc#udb:doc:inst:fmv_x_w[fmv.x.w] instruction moves the single-precision value in floating-point register `fs1`` represented in `IEEE 754-2008`
+The xref:insts:fmv_x_w.adoc#udb:doc:inst:fmv_x_w[fmv.x.w] instruction moves the single-precision value in floating-point register `fs1` represented in `IEEE 754-2008`
 encoding to the lower 32 bits of integer register `xd`. The bits are not modified in the transfer, and in particular, the
 payloads of non-canonical NaNs are preserved. For RV64, the higher 32 bits of the destination register are filled with copies
 of the floating-point number's sign bit.
@@ -25192,7 +25192,7 @@ Encoding::
 
 Description::
 The xref:insts:fsgnj_d.adoc#udb:doc:inst:fsgnj_d[fsgnj.d] instruction produces a result that takes all bits except the sign bit from `fs1`.
-The result's sign bit is taken from `fs2`'s sign bit, and the result is written to the destination
+The result's sign bit is taken from ``fs2``'s sign bit, and the result is written to the destination
 register `fd`. Sign-injection instructions do not set floating-point exception flags, nor do they
 canonicalize NaNs.
 
@@ -25289,7 +25289,7 @@ Encoding::
 
 Description::
 The xref:insts:fsgnj_q.adoc#udb:doc:inst:fsgnj_q[fsgnj.q] instruction produces a result that takes all bits except the sign bit from `fs1`.
-The result's sign bit is taken from `fs2`'s sign bit, and the result is written to the destination register `fd`.
+The result's sign bit is taken from ``fs2``'s sign bit, and the result is written to the destination register `fd`.
 xref:insts:fsgnj_q.adoc#udb:doc:inst:fsgnj_q[fsgnj.q] does not set floating-point exception flags, nor do they canonicalize _NaN_s.
 
 
@@ -25343,7 +25343,7 @@ Encoding::
 
 Description::
 The xref:insts:fsgnj_s.adoc#udb:doc:inst:fsgnj_s[fsgnj.s] instruction produces a result that takes all bits except the sign bit from `fs1`.
-The result's sign bit is taken from `fs2`'s sign bit, and the result is written to the destination
+The result's sign bit is taken from ``fs2``'s sign bit, and the result is written to the destination
 register `fd`. Sign-injection instructions do not set floating-point exception flags, nor do they
 canonicalize NaNs.
 
@@ -25398,7 +25398,7 @@ Encoding::
 
 Description::
 The xref:insts:fsgnjn_d.adoc#udb:doc:inst:fsgnjn_d[fsgnjn.d] instruction produces a result that takes all bits except the sign bit from `fs1`.
-The result's sign bit is opposite of `fs2`'s sign bit, and the result is written to the destination
+The result's sign bit is opposite of ``fs2``'s sign bit, and the result is written to the destination
 register `fd`. Sign-injection instructions do not set floating-point exception flags, nor do they
 canonicalize NaNs.
 
@@ -25495,7 +25495,7 @@ Encoding::
 
 Description::
 The xref:insts:fsgnjn_q.adoc#udb:doc:inst:fsgnjn_q[fsgnjn.q] instruction produces a result that takes all bits except the sign bit from `fs1`.
-The result's sign bit is opposite of `fs2`'s sign bit, and the result is written to the destination register `fd`.
+The result's sign bit is opposite of ``fs2``'s sign bit, and the result is written to the destination register `fd`.
 xref:insts:fsgnjn_q.adoc#udb:doc:inst:fsgnjn_q[fsgnjn.q] does not set floating-point exception flags, nor do they canonicalize _NaN_s.
 
 
@@ -25549,7 +25549,7 @@ Encoding::
 
 Description::
 The xref:insts:fsgnjn_s.adoc#udb:doc:inst:fsgnjn_s[fsgnjn.s] instruction produces a result that takes all bits except the sign bit from `fs1`.
-The result's sign bit is opposite of `fs2`'s sign bit, and the result is written to the destination
+The result's sign bit is opposite of ``fs2``'s sign bit, and the result is written to the destination
 register `fd`. Sign-injection instructions do not set floating-point exception flags, nor do they
 canonicalize NaNs.
 
@@ -29129,7 +29129,7 @@ Returns the larger of two signed integers.
 .Software Hint
 [NOTE]
 Calculating the absolute value of a signed integer can be performed using the
-following sequence: `neg rD,rS` followed by `max rD,rS,rD. When using this
+following sequence: `neg rD,rS` followed by `max rD,rS,rD`. When using this
 common sequence, it is suggested that they are scheduled with no intervening
 instructions so that implementations that are so optimized can fuse them
 together.
