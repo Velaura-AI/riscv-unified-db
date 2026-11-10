@@ -13,7 +13,7 @@ description: |
   .Software Hint
   [NOTE]
   Calculating the absolute value of a signed integer can be performed using the
-  following sequence: `neg rD,rS` followed by `max rD,rS,rD. When using this
+  following sequence: `neg rD,rS` followed by `max rD,rS,rD`. When using this
   common sequence, it is suggested that they are scheduled with no intervening
   instructions so that implementations that are so optimized can fuse them
   together.

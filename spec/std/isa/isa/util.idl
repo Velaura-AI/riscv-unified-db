@@ -172,7 +172,7 @@ function sext {
   description {
     Sign extend `value` starting at `first_extended_bit`.
 
-    Bits [`XLEN-1`:`first_extended_bit`] of the return value
+    Bits [``XLEN-1``:``first_extended_bit``] of the return value
     should get the value of bit (`first_extended bit - 1`).
   }
   body {
