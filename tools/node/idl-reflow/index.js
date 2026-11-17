@@ -189,6 +189,21 @@ function ternaryPairedPositions(source, lineStart, lineLen, isBefore) {
   return positions;
 }
 
+// Rows inside a `description { ... }` block. A description is AsciiDoc prose, not IDL, so its
+// commas, "&" (as in a character reference like &#x2032;) and "+" are not break points, and a
+// break can corrupt it: an AsciiDoc block title (".Title") is one line, so splitting it detaches
+// the rest of the title into a stray paragraph. The grammar (idl.treetop) forbids "}" inside a
+// description, so the block ends at the first "}".
+function descriptionRows(source) {
+  const rows = new Set();
+  const rowAt = (offset) => source.slice(0, offset).split('\n').length - 1;
+  for (const m of source.matchAll(/\bdescription\s*\{[^}]*\}/g)) {
+    const last = rowAt(m.index + m[0].length);
+    for (let r = rowAt(m.index); r <= last; r++) rows.add(r);
+  }
+  return rows;
+}
+
 function reflow(source, maxWidth) {
   // Each break inserts a newline, and the shortest breakable token span is 2 chars
   // (e.g. "||"), so at most ceil(sourceLength / 2) breaks are ever needed.
@@ -201,10 +216,11 @@ function reflow(source, maxWidth) {
 
   for (let iter = 0; iter < MAX_ITERS; iter++) {
     const lines = current.split('\n');
+    const prose = descriptionRows(current);
 
     let longRow = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].length > maxWidth && !skipRows.has(i)) { longRow = i; break; }
+      if (lines[i].length > maxWidth && !skipRows.has(i) && !prose.has(i)) { longRow = i; break; }
     }
     if (longRow === -1) break;
 
