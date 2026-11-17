@@ -358,8 +358,7 @@ function creg2reg {
     Maps a C register index (_e.g._, `rs1'` in the specification) to an X register index. From the
     specification:
 
-    .Registers specified by the three-bit _rs1_&
-    #x2032;, _rs2_&#x2032;, and _rd_&#x2032; fields of the CIW, CL, CS, CA, and CB formats.
+    .Registers specified by the three-bit _rs1_&#x2032;, _rs2_&#x2032;, and _rd_&#x2032; fields of the CIW, CL, CS, CA, and CB formats.
     //[cols="20%,10%,10%,10%,10%,10%,10%,10%,10%"]
     [float="center",align="center",cols="1a, 1a",frame="none",grid="none"]
     |===
