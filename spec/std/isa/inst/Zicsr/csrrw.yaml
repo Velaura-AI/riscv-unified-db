@@ -57,3 +57,5 @@ operation(): |
   # writes the value in X[xs1] to the CSR,
   # performing any WARL transformations first
   csr_sw_write(csr_handle, initial_value);
+  # a write to mip, mie or mstatus can change what is pending and enabled
+  refresh_pending_interrupts();

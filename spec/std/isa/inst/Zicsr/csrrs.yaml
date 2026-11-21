@@ -78,6 +78,8 @@ operation(): |
     # performing any WARL transformations first
     XReg mask = X[xs1];
     csr_sw_write(csr_handle, initial_csr_value | mask);
+    # a write to mip, mie or mstatus can change what is pending and enabled
+    refresh_pending_interrupts();
   }
 
   X[xd] = initial_csr_value;
