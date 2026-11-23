@@ -161,6 +161,17 @@ class RegisterFile < TopLevelDatabaseObject
     Integer(max)
   end
 
+  # Functions reachable from this register file's register_length() body. A literal or a bare
+  # parameter name reaches none; an expression is compiled as _compute_max_register_length does.
+  sig { params(cfg_arch: ConfiguredArchitecture, cache: T.untyped).returns(T::Array[Idl::FunctionDefAst]) }
+  def reachable_functions(cfg_arch, cache)
+    expr = register_length_expr
+    return [] if expr =~ /\A\d+\z/ || expr =~ /\A[A-Z_][A-Z0-9_]*\z/
+
+    node = cfg_arch.idl_compiler.compile_expression(expr, cfg_arch.symtab, pass_error: true)
+    node.reachable_functions(cfg_arch.symtab, cache)
+  end
+
   sig { returns(T.nilable(String)) }
   def summary = @data["summary"]
 

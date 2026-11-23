@@ -856,4 +856,44 @@ class TestCfgArch < Minitest::Test
     assert_equal 1, counts.size, "children disagreed on instruction count: #{results}"
     assert_operator counts.first, :>, 0
   end
+
+  def test_reachable_functions_include_a_register_length_callee
+    # A register file whose register_length() calls a function (smorg's SCALE calls
+    # xpu_sidecar_size()) makes that function reachable, so documentation built from
+    # reachable_functions includes it. bit_length is a std util.idl function nothing else in this
+    # minimal config reaches.
+    with_rv64_cfg_arch do |cfg_arch|
+      refute_includes cfg_arch.reachable_functions.map(&:name), "bit_length"
+      x = cfg_arch.register_files.find { |rf| rf.name == "X" }
+      x.define_singleton_method(:register_length_expr) { "bit_length(64)" }
+      cfg_arch.instance_variable_set(:@reachable_functions, nil)
+      assert_includes cfg_arch.reachable_functions.map(&:name), "bit_length"
+    end
+  end
+
+  private
+
+  # Yields a ConfiguredArchitecture for a minimal RV64 config (MXLEN 64, I and Sm).
+  def with_rv64_cfg_arch
+    cfg = <<~CFG
+      $schema: config_schema.json#
+      kind: architecture configuration
+      type: partially configured
+      name: rv64
+      description: A generic RV64 system; only MXLEN is known
+      params:
+        MXLEN: 64
+      mandatory_extensions:
+        - name: "I"
+          version: ">= 0"
+        - name: "Sm"
+          version: ">= 0"
+    CFG
+
+    Tempfile.create(%w/cfg .yaml/) do |f|
+      f.write cfg
+      f.flush
+      yield @resolver.cfg_arch_for(Pathname.new(f.path))
+    end
+  end
 end

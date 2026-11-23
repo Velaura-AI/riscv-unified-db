@@ -1630,7 +1630,7 @@ module Udb
 
       bar =
         if show_progress
-          TTY::ProgressBar.new("determining reachable IDL functions [:bar]", total: insts.size + csrs.size + 1 + global_ast.functions.size, output: $stdout)
+          TTY::ProgressBar.new("determining reachable IDL functions [:bar]", total: insts.size + csrs.size + register_files.size + 1 + global_ast.functions.size, output: $stdout)
         end
 
       # Shared cache across all instructions/CSRs so that common utility functions
@@ -1663,6 +1663,14 @@ module Udb
           bar.advance if show_progress
 
           csr.reachable_functions(nil, shared_cache)
+        end.uniq
+
+      # now add everything a register file's register_length() reaches
+      @reachable_functions +=
+        register_files.flat_map do |rf|
+          bar.advance if show_progress
+
+          rf.reachable_functions(self, shared_cache.fetch(possible_xlens.fetch(0)))
         end.uniq
 
       # now add everything from fetch
