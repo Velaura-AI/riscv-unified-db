@@ -471,15 +471,16 @@ module Udb
 
     # @param global_symtab [Idl::SymbolTable] Symbol table with global scope populated and a configuration loaded
     # @return [Idl::FunctionBodyAst] A pruned abstract syntax tree
-    def pruned_operation_ast(effective_xlen)
+    # @param fold_values [Boolean] false selects idlc's documentation prune mode (names kept)
+    def pruned_operation_ast(effective_xlen, fold_values: true)
       @pruned_operation_ast ||= {}
-      @pruned_operation_ast[effective_xlen] ||=
+      @pruned_operation_ast[[effective_xlen, fold_values]] ||=
         begin
           if @data.key?("operation()")
 
             type_checked_ast = type_checked_operation_ast(effective_xlen)
             symtab = fill_symtab(effective_xlen, type_checked_ast)
-            pruned_ast = type_checked_ast.prune(symtab)
+            pruned_ast = symtab.with_fold_values(fold_values) { type_checked_ast.prune(symtab) }
             pruned_ast.freeze_tree(symtab)
 
             symtab.release

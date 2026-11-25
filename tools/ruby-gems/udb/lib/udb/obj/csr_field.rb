@@ -622,20 +622,22 @@ module Udb
     # @return [Idl::FunctionBodyAst] The abstract syntax tree of the sw_write() function, type checked and pruned
     # @return [nil] if there is no sw_write() function
     # @param effective_xlen [Integer] effective xlen, needed because fields can change in different bases
-    sig { params(effective_xlen: T.nilable(Integer)).returns(T.nilable(Idl::AstNode)) }
-    def pruned_sw_write_ast(effective_xlen)
+    # @param fold_values [Boolean] false selects idlc's documentation prune mode (names kept)
+    sig { params(effective_xlen: T.nilable(Integer), fold_values: T::Boolean).returns(T.nilable(Idl::AstNode)) }
+    def pruned_sw_write_ast(effective_xlen, fold_values: true)
       @pruned_sw_write_ast ||= {}
-      return @pruned_sw_write_ast[effective_xlen] if @pruned_sw_write_ast.key?(effective_xlen)
+      key = [effective_xlen, fold_values]
+      return @pruned_sw_write_ast[key] if @pruned_sw_write_ast.key?(key)
 
-      return (@pruned_sw_write_ast[effective_xlen] = nil) unless @data.key?("sw_write(csr_value)")
+      return (@pruned_sw_write_ast[key] = nil) unless @data.key?("sw_write(csr_value)")
 
       ast = T.must(type_checked_sw_write_ast(cfg_arch.symtab, effective_xlen))
 
-      return (@pruned_sw_write_ast[effective_xlen] = ast) if cfg_arch.unconfigured?
+      return (@pruned_sw_write_ast[key] = ast) if cfg_arch.unconfigured?
 
       symtab = fill_symtab_for_sw_write(effective_xlen, ast)
 
-      ast = ast.prune(symtab)
+      ast = symtab.with_fold_values(fold_values) { ast.prune(symtab) }
       raise "Symbol table didn't come back at global + 1" unless symtab.levels == 2
 
       ast.freeze_tree(cfg_arch.symtab)
@@ -649,7 +651,7 @@ module Udb
       symtab.pop
       symtab.release
 
-      @pruned_sw_write_ast[effective_xlen] = ast
+      @pruned_sw_write_ast[key] = ast
     end
 
     # @param cfg_arch [ConfiguredArchitecture] A config. May be nil if the location is not configturation-dependent
