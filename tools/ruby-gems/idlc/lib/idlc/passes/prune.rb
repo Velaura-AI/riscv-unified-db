@@ -203,6 +203,7 @@ module Idl
   class FunctionCallExpressionAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).kind == :bits
           # can only prune if the bit width of the integer is known
@@ -396,6 +397,7 @@ module Idl
     # @!macro prune
     def prune(symtab, forced_type: nil)
       value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         val = value(symtab)
         if val.is_a?(Integer)
           # can only prune if the bit width of the integer is known
@@ -417,6 +419,8 @@ module Idl
       value_try do
         rhs_value = rhs.value(symtab)
       end
+
+      return prune_without_folding(symtab, lhs_value, rhs_value, forced_type) unless symtab.fold_values?
 
       if op == "&&"
         raise "pruning error" unless forced_type.nil? || forced_type.kind == :boolean
@@ -486,6 +490,25 @@ module Idl
         else
           BinaryExpressionAst.new(input, interval, lhs.prune(symtab), @op, rhs.prune(symtab))
         end
+      else
+        BinaryExpressionAst.new(input, interval, lhs.prune(symtab), @op, rhs.prune(symtab))
+      end
+    end
+
+    # Documentation mode: shorten &&/|| only when the known side does not decide the result
+    # (control-flow specialization); never write a literal or apply an &/| identity.
+    def prune_without_folding(symtab, lhs_value, rhs_value, forced_type)
+      one_known = lhs_value.nil? ^ rhs_value.nil?
+      if one_known && op == "&&" && lhs_value == true
+        rhs.prune(symtab)
+      elsif one_known && op == "&&" && rhs_value == true
+        lhs.prune(symtab)
+      elsif one_known && op == "||" && lhs_value == false
+        rhs.prune(symtab)
+      elsif one_known && op == "||" && rhs_value == false
+        lhs.prune(symtab)
+      elsif op == "&" || op == "|"
+        BinaryExpressionAst.new(input, interval, lhs.prune(symtab, forced_type:), @op, rhs.prune(symtab, forced_type:))
       else
         BinaryExpressionAst.new(input, interval, lhs.prune(symtab), @op, rhs.prune(symtab))
       end
@@ -643,6 +666,7 @@ module Idl
   class ConcatenationExpressionAst
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         return PruneHelpers.create_int_literal(v, forced_type: forced_type || type(symtab))
       end
@@ -671,6 +695,7 @@ module Idl
   class ReplicationExpressionAst
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         return PruneHelpers.create_int_literal(v, forced_type: forced_type || type(symtab))
       end
@@ -735,6 +760,7 @@ module Idl
   class CsrFieldReadExpressionAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).width == :unknown
           value_error "unknown width"
@@ -750,6 +776,7 @@ module Idl
   class CsrReadExpressionAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).width == :unknown
           value_error "unknown width"
@@ -776,6 +803,7 @@ module Idl
   class IdAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         value_error "Not pruning struct types" if type(symtab).kind == :struct
         v = value(symtab)
         if type(symtab).kind == :bits
@@ -794,6 +822,7 @@ module Idl
   class UnaryOperatorExpressionAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).kind == :bits
           if type(symtab).width == :unknown
@@ -811,6 +840,7 @@ module Idl
   class AryElementAccessAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).kind == :bits
           if type(symtab).width == :unknown
@@ -828,6 +858,7 @@ module Idl
   class AryRangeAccessAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).width == :unknown
           value_error "Unknown width"
@@ -843,6 +874,7 @@ module Idl
   class FieldAccessExpressionAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         if type(symtab).kind == :bits
           if type(symtab).width == :unknown
@@ -860,6 +892,7 @@ module Idl
   class EnumRefAst < AstNode
     def prune(symtab, forced_type: nil)
       value_result = value_try do
+        value_error "documentation mode: value folding off" unless symtab.fold_values?
         v = value(symtab)
         return PruneHelpers.create_literal(symtab, v, type(symtab), forced_type: forced_type || type(symtab))
       end

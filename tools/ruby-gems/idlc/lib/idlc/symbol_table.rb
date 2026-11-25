@@ -509,6 +509,23 @@ module Idl
       end
     end
 
+    # Documentation prune mode (smorg): when false, prune still uses known values to choose
+    # control flow but never replaces an expression with the literal it evaluates to.
+    # Pooled clones are built with `allocate`, so an unset flag reads as true.
+    attr_writer :fold_values
+
+    def fold_values? = @fold_values != false
+
+    # Sets fold_values for the block only; global_clone hands out reused tables, so a setting
+    # that outlived one prune would silently change a later caller's output.
+    def with_fold_values(value)
+      previous = @fold_values
+      @fold_values = value
+      yield
+    ensure
+      @fold_values = previous
+    end
+
     # @return [SymbolTable] a mutable clone of the global scope of this SymbolTable
     def global_clone
       # raise "symtab isn't frozen" if @global_clone.nil?
