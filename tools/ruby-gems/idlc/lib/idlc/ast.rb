@@ -7784,9 +7784,9 @@ module Idl
       _idl =
         if text_value.delete("_") =~ /^((MXLEN)|([0-9]+))'(s?)([bodh]?)(-[0-9a-fA-F]+)$/
           width   = ::Regexp.last_match(1)
-          signed  = ::Regexp.last_match(4)
-          base_ch = ::Regexp.last_match(5)
-          neg_str = ::Regexp.last_match(6) # e.g. "-1"
+          signed  = T.must(::Regexp.last_match(4))
+          base_ch = T.must(::Regexp.last_match(5))
+          neg_str = T.must(::Regexp.last_match(6)) # e.g. "-1"
           # In practice base_ch is always empty: PruneHelpers.create_int_literal only emits
           # negative values as decimal-no-base (value.to_s); the hex "h..." branch is taken only
           # for values > 512, which are always positive. The base branches below are defensive.

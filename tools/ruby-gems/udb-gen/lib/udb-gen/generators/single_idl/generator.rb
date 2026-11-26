@@ -1,3 +1,8 @@
+# Copyright (c) Velaura AI.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+# typed: true
+
 require "sorbet-runtime"
 require "tty-exit"
 require "fileutils"
