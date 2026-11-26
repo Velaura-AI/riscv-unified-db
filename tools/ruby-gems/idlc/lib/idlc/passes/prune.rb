@@ -599,6 +599,13 @@ module Idl
         # After pruning, some elseif conditions may resolve to a literal (e.g., `false && <runtime_csr_read>`
         # fails value() due to the CSR read but prune() short-circuits the && to false). Filter those out.
         pruned_elsifs = unknown_elsifs.filter_map do |eif|
+          # Documentation mode never writes the `false` that marks such an arm dead (`x && false`
+          # stays as written), so decide deadness the way default mode does, then show the
+          # condition unfolded.
+          unless symtab.fold_values?
+            decided_false = symtab.with_fold_values(true) { eif.cond.prune(symtab) }.is_a?(FalseExpressionAst)
+            next nil if decided_false
+          end
           pruned = eif.prune(symtab)
           next nil if pruned.cond.is_a?(FalseExpressionAst)
           pruned

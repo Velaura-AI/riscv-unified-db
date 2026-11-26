@@ -101,6 +101,32 @@ class TestPruneDocMode < Minitest::Test
     assert_match(/return FLAGS;/, out)
   end
 
+  # `b && DISABLED` has no value (b is unknown), so IfAst cannot decide it up front; default mode
+  # drops the arm because its pruned condition folds to `false`. Documentation mode must drop it
+  # too, or the arm survives and nullifies `v`, changing the later `if (v == 0)` decision.
+  def test_doc_mode_drops_elsif_decided_false_by_one_side
+    idl = <<~IDL
+      Bits<8> v = 8'd0;
+      if (x == 8'd1) {
+        return 8'd5;
+      } else if (b && DISABLED) {
+        v = 8'd1;
+      }
+      if (v == 8'd0) {
+        return 8'd7;
+      }
+      return 8'd9;
+    IDL
+    [true, false].each do |fold|
+      symtab = symtab_with_names
+      out = symtab.with_fold_values(fold) { compile_body(idl, symtab).prune(symtab) }.to_idl
+      refute_match(/DISABLED/, out, "dead elsif survived (fold: #{fold})")
+      # v still known to be 0, so the second if collapses to its body
+      refute_match(/v == 8'd0/, out, "v lost its known value (fold: #{fold})")
+      assert_match(/return 8'd7;/, out)
+    end
+  end
+
   def test_doc_mode_keeps_known_local_by_name
     idl = <<~IDL
       Bits<8> shamt = 8'd3;
