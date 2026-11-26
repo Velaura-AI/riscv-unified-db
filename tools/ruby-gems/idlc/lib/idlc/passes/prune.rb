@@ -520,7 +520,10 @@ module Idl
       !stmts.empty? && stmts.last.always_terminates?
     end
 
-    def prune(symtab, restore: true, forced_type: nil)
+    # restore: true only for an arm whose branch is undecided (IfAst/ElseIfAst pass it). A taken
+    # body is spliced into its parent in place of the `if`, so pruning that node again, as a
+    # statement, must keep its assignments, like the straight-line code it stands for.
+    def prune(symtab, restore: false, forced_type: nil)
       pruned_stmts = []
       symtab.push(nil)
       snapshot = symtab.snapshot_values if restore
@@ -543,7 +546,7 @@ module Idl
         input, interval,
         body.interval,
         cond.prune(symtab),
-        body.prune(symtab).stmts
+        body.prune(symtab, restore: true).stmts
       )
     end
   end
@@ -613,9 +616,9 @@ module Idl
         result = IfAst.new(
           input, interval,
           if_cond.prune(symtab),
-          if_body.prune(symtab),
+          if_body.prune(symtab, restore: true),
           pruned_elsifs,
-          final_else_body.prune(symtab)
+          final_else_body.prune(symtab, restore: true)
         )
         # Nullify any variable assigned in any branch, since we don't know which ran
         if_body.nullify_assignments(symtab)
