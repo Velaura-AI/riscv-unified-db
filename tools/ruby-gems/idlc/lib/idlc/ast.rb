@@ -9001,7 +9001,8 @@ module Idl
           err = :value_error
         end
       end
-      throw err unless err.nil?
+      # value_error, not `throw err`: a bare throw carries nil, which value_else never treats as unknown
+      value_error "" unless err.nil?
     end
 
     # @!macro to_idl

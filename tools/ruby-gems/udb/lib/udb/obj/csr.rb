@@ -567,22 +567,24 @@ module Udb
 
     # @param effective_xlen [Integer or nil] 32 or 64 for fixed xlen, nil for dynamic
     # @return [FunctionBodyAst] Pruned (but not re-type-checked) AST for sw_read()
-    def pruned_sw_read_ast(effective_xlen)
+    # @param fold_values [Boolean] false selects idlc's documentation prune mode (names kept)
+    def pruned_sw_read_ast(effective_xlen, fold_values: true)
       raise ArgumentError, "effective_xlen is non-nil and is a #{effective_xlen.class} but must be an Integer" unless effective_xlen.nil? || effective_xlen.is_a?(Integer)
       @pruned_sw_read_ast ||= {}
-      return @pruned_sw_read_ast[effective_xlen] unless @pruned_sw_read_ast[effective_xlen].nil?
+      key = [effective_xlen, fold_values]
+      return @pruned_sw_read_ast[key] unless @pruned_sw_read_ast[key].nil?
 
       ast = type_checked_sw_read_ast(effective_xlen)
 
       symtab = fill_symtab(ast, effective_xlen)
 
-      ast = ast.prune(symtab)
+      ast = symtab.with_fold_values(fold_values) { ast.prune(symtab) }
       ast.freeze_tree(@cfg_arch.symtab)
 
       symtab.pop
       symtab.release
 
-      @pruned_sw_read_ast[effective_xlen] = ast
+      @pruned_sw_read_ast[key] = ast
     end
 
     # @param effective_xlen [Integer or nil] 32 or 64 for fixed xlen, nil for dynamic
