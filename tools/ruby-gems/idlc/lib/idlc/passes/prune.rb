@@ -555,26 +555,19 @@ module Idl
     # @!macro prune
     def prune(symtab, forced_type: nil)
       value_result = value_try do
-        if if_cond.value(symtab)
-          return if_body.prune(symtab, restore: false)
-        elsif !elseifs.empty?
-          # we know that the if condition is false, so now we treat the else if
-          # as the starting point and try again
-          return IfAst.new(
-            input, interval,
-            elseifs[0].cond.dup,
-            elseifs[0].body.dup,
-            elseifs[1..].map(&:dup),
-            final_else_body.dup).prune(symtab)
-        elsif !final_else_body.stmts.empty?
-          # the if is false, and there are no else ifs, so the result of the prune is just the pruned else body
-          return final_else_body.prune(symtab, restore: false)
-        else
-          # the if is false, and there are no else ifs or elses. This is just a no-op
-          return NoopAst.new
-        end
+        return if_body.prune(symtab, restore: false) if if_cond.value(symtab)
+
+        return prune_if_false(symtab)
       end
       value_else(value_result) do
+        # The condition has no value, but its pruned form can still be `false` when the side that
+        # has no value cannot change the result (`x && <false>`; `value` short-circuits only on
+        # the left operand). Decide that with folding on, as the elsif filter below does, so
+        # documentation mode drops the same dead arm.
+        if symtab.with_fold_values(true) { if_cond.prune(symtab) }.is_a?(FalseExpressionAst)
+          return prune_if_false(symtab)
+        end
+
         # we don't know the value of the if condition
         # we still might know the value of an else if
         unknown_elsifs = []
@@ -627,6 +620,23 @@ module Idl
         result
       end
     end
+
+    # The if condition is false: continue from the first else if, else take the else body.
+    def prune_if_false(symtab)
+      if !elseifs.empty?
+        IfAst.new(
+          input, interval,
+          elseifs[0].cond.dup,
+          elseifs[0].body.dup,
+          elseifs[1..].map(&:dup),
+          final_else_body.dup).prune(symtab)
+      elsif !final_else_body.stmts.empty?
+        final_else_body.prune(symtab, restore: false)
+      else
+        NoopAst.new
+      end
+    end
+    private :prune_if_false
   end
 
   class ConditionalReturnStatementAst < AstNode

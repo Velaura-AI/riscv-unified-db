@@ -127,6 +127,42 @@ class TestPruneDocMode < Minitest::Test
     end
   end
 
+  # The same one-side-decided condition on the `if` itself: both modes must drop the arm (default
+  # mode used to leave `if (false) { ... }`), and a final else then runs unconditionally.
+  def test_if_decided_false_by_one_side_is_dropped
+    dead_arm = <<~IDL
+      Bits<8> v = 8'd0;
+      if (b && DISABLED) {
+        v = 8'd1;
+      }
+      if (v == 8'd0) {
+        return 8'd7;
+      }
+      return 8'd9;
+    IDL
+    with_else = <<~IDL
+      Bits<8> v = 8'd0;
+      if (b && DISABLED) {
+        return 8'd1;
+      } else {
+        v = x;
+      }
+      return v;
+    IDL
+    [true, false].each do |fold|
+      symtab = symtab_with_names
+      out = symtab.with_fold_values(fold) { compile_body(dead_arm, symtab).prune(symtab) }.to_idl
+      refute_match(/DISABLED|false/, out, "dead if survived (fold: #{fold})")
+      refute_match(/v == 8'd0/, out, "v lost its known value (fold: #{fold})")
+      assert_match(/return 8'd7;/, out)
+
+      symtab = symtab_with_names
+      out = symtab.with_fold_values(fold) { compile_body(with_else, symtab).prune(symtab) }.to_idl
+      refute_match(/DISABLED|false|8'd1/, out, "dead if survived (fold: #{fold})")
+      assert_match(/v = x;\s*return v;/, out)
+    end
+  end
+
   def test_doc_mode_keeps_known_local_by_name
     idl = <<~IDL
       Bits<8> shamt = 8'd3;
