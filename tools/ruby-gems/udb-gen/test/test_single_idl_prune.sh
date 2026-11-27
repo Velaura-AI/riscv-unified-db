@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) Velaura AI.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 # Run from the submodule root. Pruning ⇒ rv32 and rv64 emissions differ in at least one body,
 # and both still parse.
 set -euo pipefail

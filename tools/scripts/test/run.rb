@@ -12,6 +12,7 @@ require "fileutils"
 # gen_gem_versions.rb guards its main block with `if __FILE__ == $PROGRAM_NAME`,
 # so requiring it here is safe.
 require_relative "../gen_gem_versions"
+require_relative "test_check_schema_versions"
 
 UDB_ROOT_REAL = Pathname.new(__FILE__).dirname.parent.parent.parent.realpath
 

@@ -64,3 +64,39 @@ class TestFormatterReflow < Minitest::Test
     assert_equal source.delete(" \n"), out.delete(" \n")
   end
 end
+
+# Spacing from the topiary pass (queries/idl.scm). Each input differs from its expected output,
+# so Formatter.format's fall-back to its input on a topiary failure cannot pass these.
+class TestFormatterSpacing < Minitest::Test
+  def format_body(stmt)
+    source = <<~IDL
+      %version: 1.0
+
+      function g {
+        returns Bits<32>
+        arguments Bits<32> a, Bits<1> s
+        description {
+          Short.
+        }
+        body {
+          #{stmt}
+        }
+      }
+    IDL
+    Idl::Formatter.format(source)[/body \{\n\s*(.*?)\n/, 1]
+  end
+
+  # A unary minus binds to its operand with no space, but must not eat the space that follows
+  # the whole unary expression (fp.idl's `(sign == 1) ? -a : a` was being rewritten `-a: a`).
+  def test_unary_minus_before_ternary_colon_keeps_its_space
+    assert_equal "return (s == 1) ? -a : a;", format_body("return (s==1)?-a:a;")
+  end
+
+  def test_unary_minus_before_binary_operator_keeps_its_space
+    assert_equal "return -a + a;", format_body("return -a+a;")
+  end
+
+  def test_unary_minus_hugs_its_operand
+    assert_equal "return g(-a, s);", format_body("return g( - a,s);")
+  end
+end
