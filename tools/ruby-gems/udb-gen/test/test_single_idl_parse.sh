@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) Velaura AI.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 # Run from the submodule root.
 set -euo pipefail
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT

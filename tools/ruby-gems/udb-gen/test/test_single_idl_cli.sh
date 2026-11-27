@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) Velaura AI.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 # Run from the submodule root: tools/ruby-gems/udb-gen/test/test_single_idl_cli.sh
 set -euo pipefail
 out="$(./bin/generate single-idl -c _ 2>/dev/null)" || { echo "FAIL: nonzero exit"; exit 1; }

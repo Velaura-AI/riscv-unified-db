@@ -1,3 +1,6 @@
+# Copyright (c) Velaura AI.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 # Run via: ./bin/mise exec -- bundle exec ruby tools/ruby-gems/udb-gen/test/test_single_idl_roundtrip.rb
 require "minitest/autorun"
 require "tmpdir"
