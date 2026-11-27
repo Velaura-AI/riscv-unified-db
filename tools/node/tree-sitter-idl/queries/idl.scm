@@ -242,7 +242,9 @@
 ; Minus: binary context gets spaces; unary context gets only @append_antispace
 ; (not @prepend_antispace — that would eat the space from the preceding token)
 (binary_expression "-" @prepend_space @append_space)
-(unary_expression "-") @append_antispace
+; The capture goes on the "-" token, not the node: on the node it would eat the space after
+; the whole unary expression (`-a : a` became `-a: a`).
+(unary_expression "-" @append_antispace)
 "::" @prepend_antispace @append_antispace
 ; Ternary: preserve reflow-inserted breaks before ? and :, and indent continuations.
 ; The first child is the condition (@append_indent_start opens one level after it);

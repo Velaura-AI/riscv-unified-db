@@ -381,7 +381,7 @@ function softfloat_roundToI32 {
       sig32 = sig32 & ~32'b1;
     }
 
-    Bits<32> z = (sign == 1) ? -sig32: sig32;
+    Bits<32> z = (sign == 1) ? -sig32 : sig32;
     if ((z != 0) && (($signed(z) < 's0) != (sign == 1))) {
       set_fp_flag(FpFlag::NV);
       return sign == 1 ? WORD_NEG_OVERFLOW : WORD_POS_OVERFLOW;
@@ -962,7 +962,7 @@ function softfloat_shiftRightJam64Extra {
 
     if (dist < 64) {
       z.u1 = a >> dist;
-      z.u2 = a << (-dist& 63);
+      z.u2 = a << (-dist & 63);
     } else {
       z.u1 = 0;
       z.u2 = (dist == 64) ? a : ((a != 0) ? 1 : 0);
@@ -1613,7 +1613,7 @@ function i32_to_f32 {
     if ((a & 0x7FFFFFFF) == 0) {
       return (sign == 1) ? packToF32UI(1, 0x9E, 0) : packToF32UI(0, 0, 0);
     }
-    U32 absA = (sign == 1) ? -a: a;
+    U32 absA = (sign == 1) ? -a : a;
     return softfloat_normRoundPackToF32(sign, 0x9C, absA, mode);
   }
 }
@@ -1834,7 +1834,7 @@ function softfloat_roundToI32_no_flag {
       sig32 = sig32 & ~32'b1;
     }
 
-    Bits<32> z = (sign == 1) ? -sig32: sig32;
+    Bits<32> z = (sign == 1) ? -sig32 : sig32;
     if ((z != 0) && (($signed(z) < 's0) != (sign == 1))) {
       return sign == 1 ? WORD_NEG_OVERFLOW : WORD_POS_OVERFLOW;
     }
@@ -2008,7 +2008,7 @@ function softfloat_roundToI64 {
       }
     }
 
-    z = (sign == 1) ? -sig: sig;
+    z = (sign == 1) ? -sig : sig;
     if ((z != 0) && (((($signed(z) < 0s) ? 1 : 0) ^ sign) == 1)) {
       set_fp_flag(FpFlag::NV);
       return (sign == 1) ? I64_NEG_OVERFLOW : I64_POS_OVERFLOW;
